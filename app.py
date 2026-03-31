@@ -60,6 +60,10 @@ async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_a
     message = req.message
     conversation_id = req.conversation_id
     
+    # Comando manual de encerramento
+    if message.lower() in ["sair", "encerrar"]:
+        return {"response": "Obrigado por entrar em contato com a Buddha Spa! 😊\n\nVolte sempre que precisar! 🙏"}
+    
     # Sessão separada com prefixo para isolamento
     session_id = f"central_{conversation_id}"
     
@@ -99,6 +103,22 @@ async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_a
     )
     
     print(f"📝 Novas mensagens geradas: {len(result.new_messages())}")
+    
+    # Verifica se sessão foi deletada (encerramento via tool)
+    session_after = get_session(session_id)
+    
+    if session_after is None:
+        print("🔴 Sessão foi deletada (encerramento). Retornando resposta final.")
+        print("=" * 80)
+        add_messages(session_id, result.new_messages())
+        
+        output_text = result.data if hasattr(result, 'data') and result.data else result.output
+        output_text = str(output_text)
+        
+        print("✅ BOT CENTRAL - RESPOSTA (ENCERRAMENTO):")
+        print(output_text)
+        print("=" * 80)
+        return {"response": output_text}
     
     # Salva novas mensagens
     add_messages(session_id, result.new_messages())

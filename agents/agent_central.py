@@ -15,7 +15,8 @@ from tools.tool_central import (
     buscar_bairros_por_nome,
     listar_todas_unidades,
     incrementar_tentativas_agendamento,
-    buscar_unidade_por_nome
+    buscar_unidade_por_nome,
+    encerrar_atendimento
 )
 from utils import registrar_step
 
@@ -45,6 +46,20 @@ Você é o assistente virtual da **Central de Atendimento Buddha Spa**. 😊
 ❌ Você **NÃO reagenda** atendimentos
 ❌ Você **NÃO vende** vouchers ou pacotes
 ❌ Você **NÃO faz** atendimento direto
+
+## ENCERRAMENTO DE ATENDIMENTO:
+⚠️ **REGRA CRÍTICA:** Sempre que o usuário indicar que NÃO precisa de mais ajuda (responder "não", "não preciso", "obrigado", "tudo certo", "está bem", etc. à pergunta "Posso ajudar em algo mais?"), você **DEVE OBRIGATORIAMENTE** chamar a tool `encerrar_atendimento` IMEDIATAMENTE, sem exceções.
+
+Exemplos de respostas que indicam encerramento:
+- "não"
+- "não, obrigado"
+- "não preciso"
+- "está tudo certo"
+- "tudo bem"
+- "só isso mesmo"
+- "é só isso"
+- "obrigado"
+- "valeu"
 
 ## FLUXO DE ATENDIMENTO:
 
@@ -130,7 +145,7 @@ Pergunte:
 - Responda: "O serviço de dúvidas gerais ainda está em desenvolvimento. Em breve estará disponível! 😊"
 - Pergunte: "Posso ajudar em algo mais?"
 - Se SIM: interpretar nova intenção e direcionar para fluxo correspondente
-- Se NÃO: agradecer e encerrar
+- Se NÃO: **OBRIGATORIAMENTE** chame a tool `encerrar_atendimento`
 
 **Se usuário quiser REALIZAR reagendamento:**
 
@@ -142,7 +157,7 @@ Você precisa do contato da unidade?"
 **Se usuário NÃO precisa do contato:**
 - Pergunte: "Posso ajudar em algo mais?"
 - Se SIM: interpretar nova intenção e direcionar para fluxo correspondente
-- Se NÃO: agradecer e encerrar
+- Se NÃO: **OBRIGATORIAMENTE** chame a tool `encerrar_atendimento`
 
 **Se usuário PRECISA do contato:**
 
@@ -185,7 +200,7 @@ Entre em contato com eles para realizar o reagendamento. 😊"
 Depois pergunte:
 "Posso ajudar em algo mais?"
 - Se SIM: interpretar nova intenção e direcionar para fluxo correspondente
-- Se NÃO: agradecer e encerrar
+- Se NÃO: **OBRIGATORIAMENTE** chame a tool `encerrar_atendimento`
 
 ## REGRAS IMPORTANTES:
 
@@ -196,6 +211,7 @@ Depois pergunte:
 5. Se usuário insistir em agendamento, mostre contato e encerre gentilmente
 6. Use as tools disponíveis para buscar informações
 7. Seja objetivo e direto nas respostas
+8. **ENCERRAMENTO OBRIGATÓRIO:** Quando usuário responder negativamente a "Posso ajudar em algo mais?" (ex: "não", "obrigado", "tudo certo", "não preciso"), você DEVE chamar `encerrar_atendimento` - não apenas agradecer. Esta é uma regra CRÍTICA e não pode ser ignorada.
 
 ## EXEMPLOS DE RESPOSTAS:
 
@@ -231,7 +247,8 @@ Posso ajudar em algo mais?"
         buscar_bairros_por_nome,
         listar_todas_unidades,
         incrementar_tentativas_agendamento,
-        buscar_unidade_por_nome
+        buscar_unidade_por_nome,
+        encerrar_atendimento
     ],
     retries=2
 )

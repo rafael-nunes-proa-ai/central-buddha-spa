@@ -578,3 +578,32 @@ async def buscar_unidade_por_nome(
     except Exception as e:
         print(f"❌ Erro ao buscar unidade: {str(e)}")
         return f"ERRO|{str(e)}"
+
+
+@Tool
+async def encerrar_atendimento(ctx: RunContext[MyDeps]) -> str:
+    """
+    Encerra o atendimento e deleta a sessão de conversa.
+    Deve ser chamada quando o usuário não quer mais ajuda ou solicita encerramento.
+    
+    Returns:
+        str: Mensagem de despedida
+    """
+    from store.database import delete_session
+    
+    conversation_id = ctx.deps.session_id
+    
+    print("=" * 80)
+    print("🔴 ENCERRANDO ATENDIMENTO")
+    print(f"Session ID: {conversation_id}")
+    print("=" * 80)
+    
+    try:
+        delete_session(conversation_id)
+        print(f"✅ Sessão {conversation_id} deletada com sucesso")
+        print("=" * 80)
+        return "Obrigado por entrar em contato com a Buddha Spa! 😊\n\nVolte sempre que precisar! 🙏"
+    except Exception as e:
+        print(f"❌ Erro ao deletar sessão: {e}")
+        print("=" * 80)
+        return "Obrigado por entrar em contato com a Buddha Spa! 😊\n\nVolte sempre que precisar! 🙏"
