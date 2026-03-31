@@ -1,0 +1,65 @@
+{
+  "unidades": [
+    {
+      "nome": "Buddha Spa - Moema",
+      "endereco_completo": "Av. Moaci, 187 - Moema, São Paulo - SP, CEP: 04083-000",
+      "cep": "04083-000",
+      "telefone": "(11) 5051-2929",
+      "whatsapp": "(11) 95051-2929",
+      "latitude": -23.6036,
+      "longitude": -46.6653,
+      "horario_funcionamento": "Segunda a Sexta: 9h às 20h | Sábado: 9h às 18h",
+      "email": "moema@buddhaspa.com.br",
+      "link_maps": "https://maps.google.com/?q=-23.6036,-46.6653"
+    },
+    {
+      "nome": "Buddha Spa - Jardins",
+      "endereco_completo": "Rua Haddock Lobo, 1307 - Jardins, São Paulo - SP, CEP: 01414-001",
+      "cep": "01414-001",
+      "telefone": "(11) 3061-4040",
+      "whatsapp": "(11) 93061-4040",
+      "latitude": -23.5629,
+      "longitude": -46.6644,
+      "horario_funcionamento": "Segunda a Sexta: 9h às 21h | Sábado: 9h às 19h",
+      "email": "jardins@buddhaspa.com.br",
+      "link_maps": "https://maps.google.com/?q=-23.5629,-46.6644"
+    },
+    {
+      "nome": "Buddha Spa - Vila Olímpia",
+      "endereco_completo": "Rua Funchal, 573 - Vila Olímpia, São Paulo - SP, CEP: 04551-060",
+      "cep": "04551-060",
+      "telefone": "(11) 3045-5050",
+      "whatsapp": "(11) 93045-5050",
+      "latitude": -23.5956,
+      "longitude": -46.6867,
+      "horario_funcionamento": "Segunda a Sexta: 8h às 20h | Sábado: 9h às 17h",
+      "email": "vilaolimpia@buddhaspa.com.br",
+      "link_maps": "https://maps.google.com/?q=-23.5956,-46.6867"
+    },
+    {
+      "nome": "Buddha Spa - Pinheiros",
+      "endereco_completo": "Rua dos Pinheiros, 498 - Pinheiros, São Paulo - SP, CEP: 05422-001",
+      "cep": "05422-001",
+      "telefone": "(11) 3062-7070",
+      "whatsapp": "(11) 93062-7070",
+      "latitude": -23.5619,
+      "longitude": -46.6919,
+      "horario_funcionamento": "Segunda a Sexta: 9h às 20h | Sábado: 9h às 18h",
+      "email": "pinheiros@buddhaspa.com.br",
+      "link_maps": "https://maps.google.com/?q=-23.5619,-46.6919"
+    },
+    {
+      "nome": "Buddha Spa - Itaim Bibi",
+      "endereco_completo": "Av. Brigadeiro Faria Lima, 2232 - Itaim Bibi, São Paulo - SP, CEP: 01451-000",
+      "cep": "01451-000",
+      "telefone": "(11) 3078-8080",
+      "whatsapp": "(11) 93078-8080",
+      "latitude": -23.5778,
+      "longitude": -46.6869,
+      "horario_funcionamento": "Segunda a Sexta: 8h às 21h | Sábado: 9h às 19h",
+      "email": "itaim@buddhaspa.com.br",
+      "link_maps": "https://maps.google.com/?q=-23.5778,-46.6869"
+    }
+  ],
+  "link_todas_unidades": "https://buddhaspa.com.br/unidades"
+}

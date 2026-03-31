@@ -220,3 +220,66 @@ def resolver_data(texto: str, agora: Optional[datetime] = None) -> Dict[str, Any
         "entrada_detectada": {"tipo": "nenhum"},
         "sugestao": None,
     }
+
+
+######################################
+## Funções de Tracking - Bot Central
+######################################
+
+from pydantic_ai import RunContext
+from pydantic_ai.tools import Tool
+from agents.deps import MyDeps
+
+def registrar_step(ctx: RunContext[MyDeps], step: str) -> str:
+    """
+    Registra um step de navegação no histórico do Bot Central.
+    Função auxiliar (não é uma tool).
+    
+    Args:
+        ctx: RunContext com deps
+        step: Nome do step (ex: "validacao_cep", "encontrou_unidade")
+    
+    Returns:
+        Confirmação do registro
+    """
+    if ctx.deps.steps is None:
+        ctx.deps.steps = []
+    
+    ctx.deps.steps.append(step)
+    
+    print("=" * 80)
+    print(f"📍 STEP REGISTRADO: {step}")
+    print(f"📊 Total de steps: {len(ctx.deps.steps)}")
+    print(f"🗺️ Histórico: {' → '.join(ctx.deps.steps)}")
+    print(f"📋 Array completo: {ctx.deps.steps}")
+    print("=" * 80)
+    
+    return f"Step '{step}' registrado"
+
+def registrar_assunto(ctx: RunContext[MyDeps], assunto: str) -> str:
+    """
+    Registra um assunto/tema da conversa (para análise futura).
+    Função auxiliar (não é uma tool).
+    
+    Args:
+        ctx: RunContext com deps
+        assunto: Assunto (ex: "contato", "localizacao", "agendamento")
+    
+    Returns:
+        Confirmação do registro
+    """
+    # Pode ser expandido no futuro para tracking mais detalhado
+    return f"Assunto '{assunto}' registrado"
+
+
+@Tool
+def incrementar_tentativas_agendamento(ctx: RunContext[MyDeps]) -> str:
+    """
+    Incrementa contador de tentativas de agendamento.
+    Usado para evitar loop infinito quando usuário insiste em agendar.
+    
+    Returns:
+        Confirmação do incremento
+    """
+    ctx.deps.tentativas_agendamento += 1
+    return f"ok"
