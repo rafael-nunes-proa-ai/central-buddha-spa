@@ -16,9 +16,10 @@ from tools.tool_central import (
     listar_todas_unidades,
     incrementar_tentativas_agendamento,
     buscar_unidade_por_nome,
-    encerrar_atendimento
+    encerrar_atendimento,
+    marcar_contexto_cancelamento
 )
-from utils import registrar_step
+from utils import registrar_step, registrar_assunto
 
 load_dotenv()
 
@@ -77,6 +78,9 @@ Como posso ajudar?"
 
 **Se usuário mencionar REAGENDAMENTO:**
 - Vá para o fluxo de REAGENDAMENTO (seção 7)
+
+**Se usuário mencionar CANCELAMENTO:**
+- Vá para o fluxo de CANCELAMENTO (seção 8)
 
 **Se usuário mencionar CONTATO/LOCALIZAÇÃO:**
 - Solicite CEP ou bairro para encontrar unidade mais próxima
@@ -185,7 +189,7 @@ Após resposta do usuário:
    - Informe que houve um erro temporário
    - Peça para tentar novamente ou ofereça `listar_todas_unidades()`
 
-**STEP #Contato da unidade**
+**ASSUNTO #Contato da unidade**
 Mostre:
 "Aqui está o contato da unidade informada. 👇
 
@@ -196,6 +200,78 @@ Mostre:
 📧 E-mail: [email]
 
 Entre em contato com eles para realizar o reagendamento. 😊"
+
+Depois pergunte:
+"Posso ajudar em algo mais?"
+- Se SIM: interpretar nova intenção e direcionar para fluxo correspondente
+- Se NÃO: **OBRIGATORIAMENTE** chame a tool `encerrar_atendimento`
+
+### 8. FLUXO DE CANCELAMENTO
+
+**Quando usuário mencionar CANCELAR:**
+
+1. Use tool: `marcar_contexto_cancelamento()` para marcar o contexto
+2. Registre o step usando: `registrar_step("Cancelamento")`
+3. Pergunte:
+"Você deseja receber informações sobre como cancelar ou quer realizar um cancelamento?"
+
+**Se usuário quiser INFORMAÇÕES sobre cancelamento:**
+- Responda: "O serviço de dúvidas gerais ainda está em desenvolvimento. Em breve estará disponível! 😊"
+- Pergunte: "Posso ajudar em algo mais?"
+- Se SIM: interpretar nova intenção e direcionar para fluxo correspondente
+- Se NÃO: **OBRIGATORIAMENTE** chame a tool `encerrar_atendimento`
+
+**Se usuário quiser REALIZAR cancelamento:**
+
+1. Registre o step usando: `registrar_step("Quero cancelar")`
+2. Responda:
+"O cancelamento só pode ser realizado diretamente com a unidade onde o atendimento foi agendado. 😊
+Você precisa do contato da unidade?"
+
+**Se usuário NÃO precisa do contato:**
+- Pergunte: "Posso ajudar em algo mais?"
+- Se SIM: interpretar nova intenção e direcionar para fluxo correspondente
+- Se NÃO: **OBRIGATORIAMENTE** chame a tool `encerrar_atendimento`
+
+**Se usuário PRECISA do contato:**
+
+**STEP #Coletar unidade**
+1. Registre o step usando: `registrar_step("Coletar unidade")`
+2. Pergunte:
+"Certo. Em qual unidade você fez o agendamento?"
+
+Após resposta do usuário:
+1. Use tool: `buscar_unidade_por_nome(nome_unidade)`
+2. Se retornar "ENCONTRADA|dados":
+   - Parse os dados: nome|endereco|bairro|cidade|uf|cep|telefone|celular|email
+   - Vá para ASSUNTO #Contato da unidade cancelar
+3. Se retornar "MULTIPLAS|lista":
+   - A lista já vem numerada (1. Nome - Bairro, Cidade)
+   - Mostre a lista EXATAMENTE como retornada pela tool
+   - Peça: "Encontrei várias unidades. Poderia me informar a **cidade** ou o **bairro** para que eu possa localizar com mais precisão? 😊"
+   - Mostre a lista numerada
+   - Peça: "Qual delas?"
+   - Após nova resposta, use novamente `buscar_unidade_por_nome()` com o termo mais específico
+4. Se retornar "NAO_ENCONTRADA":
+   - Informe que não encontrou
+   - Peça para o usuário verificar o nome ou informar cidade/bairro
+   - Ofereça: `listar_todas_unidades()` como alternativa
+5. Se retornar "ERRO|mensagem":
+   - Informe que houve um erro temporário
+   - Peça para tentar novamente ou ofereça `listar_todas_unidades()`
+
+**ASSUNTO #contato unidade**
+1. Registre o assunto usando: `registrar_assunto("contato unidade")`
+2. Mostre:
+"Aqui está o contato da unidade informada. 👇
+
+📍 **[Nome da Unidade]**
+🏠 Endereço: [endereço completo]
+📞 Telefone: [telefone]
+📱 Celular: [celular]
+📧 E-mail: [email]
+
+Entre em contato com eles para realizar o cancelamento. 😊"
 
 Depois pergunte:
 "Posso ajudar em algo mais?"
@@ -248,7 +324,10 @@ Posso ajudar em algo mais?"
         listar_todas_unidades,
         incrementar_tentativas_agendamento,
         buscar_unidade_por_nome,
-        encerrar_atendimento
+        encerrar_atendimento,
+        marcar_contexto_cancelamento,
+        registrar_step,
+        registrar_assunto
     ],
     retries=2
 )

@@ -230,14 +230,14 @@ from pydantic_ai import RunContext
 from pydantic_ai.tools import Tool
 from agents.deps import MyDeps
 
+@Tool
 def registrar_step(ctx: RunContext[MyDeps], step: str) -> str:
     """
     Registra um step de navegação no histórico do Bot Central.
-    Função auxiliar (não é uma tool).
+    Use esta tool para marcar steps importantes do fluxo (ex: "Coletar unidade", "contato unidade").
     
     Args:
-        ctx: RunContext com deps
-        step: Nome do step (ex: "validacao_cep", "encontrou_unidade")
+        step: Nome do step exatamente como especificado no fluxo (com espaços, sem underscore)
     
     Returns:
         Confirmação do registro
@@ -256,21 +256,30 @@ def registrar_step(ctx: RunContext[MyDeps], step: str) -> str:
     
     return f"Step '{step}' registrado"
 
+@Tool
 def registrar_assunto(ctx: RunContext[MyDeps], assunto: str) -> str:
     """
     Registra um assunto/tema da conversa (para análise futura).
-    Função auxiliar (não é uma tool).
+    Use esta tool para marcar assuntos importantes (ex: "contato unidade", "cancelamento").
     
     Args:
-        ctx: RunContext com deps
-        assunto: Assunto (ex: "contato", "localizacao", "agendamento")
+        assunto: Assunto exatamente como especificado no fluxo (com espaços, sem underscore)
     
     Returns:
         Confirmação do registro
     """
-    # Pode ser expandido no futuro para tracking mais detalhado
+    if ctx.deps.assuntos is None:
+        ctx.deps.assuntos = []
+    
+    ctx.deps.assuntos.append(assunto)
+    
+    print("=" * 80)
+    print(f"🟠 ASSUNTO REGISTRADO: {assunto}")
+    print(f"📊 Total de assuntos: {len(ctx.deps.assuntos)}")
+    print(f"📝 Array de assuntos: {ctx.deps.assuntos}")
+    print("=" * 80)
+    
     return f"Assunto '{assunto}' registrado"
-
 
 @Tool
 def incrementar_tentativas_agendamento(ctx: RunContext[MyDeps]) -> str:

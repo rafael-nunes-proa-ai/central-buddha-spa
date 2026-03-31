@@ -463,13 +463,33 @@ async def incrementar_tentativas_agendamento(ctx: RunContext[MyDeps]) -> str:
 
 
 @Tool
+async def marcar_contexto_cancelamento(ctx: RunContext[MyDeps]) -> str:
+    """
+    Marca o contexto como cancelamento para que outras tools possam detectar.
+    Use esta tool SEMPRE no início do fluxo de cancelamento.
+    Apenas marca o contexto internamente, não registra assunto.
+    
+    Returns:
+        Confirmação do registro
+    """
+    # Marca contexto de cancelamento internamente
+    ctx.deps.contexto_cancelamento = True
+    
+    print("=" * 80)
+    print("🟠 CONTEXTO MARCADO: Cancelamento (interno)")
+    print("=" * 80)
+    
+    return "ok"
+
+
+@Tool
 async def buscar_unidade_por_nome(
     ctx: RunContext[MyDeps],
     nome_unidade: str
 ) -> str:
     """
     Busca unidade/franqueada na API Belle Software pelo nome ou bairro.
-    Usado no fluxo de reagendamento para encontrar o contato da unidade.
+    Usado no fluxo de reagendamento e cancelamento para encontrar o contato da unidade.
     
     Args:
         nome_unidade: Nome da unidade, bairro ou cidade informado pelo usuário
@@ -479,12 +499,10 @@ async def buscar_unidade_por_nome(
     """
     conversation_id = ctx.deps.session_id
     
-    # Registra step
-    registrar_step(ctx, "buscar_unidade_reagendamento")
-    
     print("=" * 80)
     print("🔍 TOOL: buscar_unidade_por_nome")
     print(f"Nome/Bairro informado: {nome_unidade}")
+    print(f"� Contexto cancelamento: {ctx.deps.contexto_cancelamento}")
     print("=" * 80)
     
     # Busca na API Belle

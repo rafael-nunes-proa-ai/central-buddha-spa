@@ -26,5 +26,9 @@ class MyDeps:
     precisa_contato_unidade: Optional[bool] = None  # Se precisa do contato da unidade
     nome_unidade_reagendamento: Optional[str] = None  # Nome da unidade informada pelo usuário
     
+    # BOT CENTRAL - CANCELAMENTO
+    contexto_cancelamento: Optional[bool] = None  # Marcador interno para contexto de cancelamento
+    
     # TRACKING DE NAVEGAÇÃO
     steps: Optional[list[str]] = None  # Histórico de steps percorridos pelo usuário
+    assuntos: Optional[list[str]] = None  # Histórico de assuntos/temas da conversa (ex: contato unidade)

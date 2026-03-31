@@ -137,7 +137,9 @@ async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_a
         "quer_info_reagendamento": deps.quer_info_reagendamento,
         "precisa_contato_unidade": deps.precisa_contato_unidade,
         "nome_unidade_reagendamento": deps.nome_unidade_reagendamento,
+        "contexto_cancelamento": deps.contexto_cancelamento,
         "steps": deps.steps,
+        "assuntos": deps.assuntos,
     }
     update_context(session_id, context_updated)
     
