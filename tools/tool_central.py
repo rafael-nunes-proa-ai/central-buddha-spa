@@ -42,9 +42,6 @@ async def buscar_endereco_por_cep(
     """
     conversation_id = ctx.deps.session_id
     
-    # Registra step
-    registrar_step(ctx, "validacao_cep")
-    
     # Limpa CEP (remove hífen e espaços)
     cep_limpo = re.sub(r'[^0-9]', '', cep)
     
@@ -110,9 +107,6 @@ async def buscar_coordenadas_por_endereco(
         str: "ENCONTRADO|latitude|longitude" ou "NAO_ENCONTRADO"
     """
     conversation_id = ctx.deps.session_id
-    
-    # Registra step
-    registrar_step(ctx, "buscar_coordenadas")
     
     # Busca dados do contexto
     session = get_session(conversation_id)
@@ -200,9 +194,6 @@ async def encontrar_unidade_mais_proxima(
     """
     conversation_id = ctx.deps.session_id
     
-    # Registra step
-    registrar_step(ctx, "encontrar_unidade_proxima")
-    
     # Busca dados do contexto
     session = get_session(conversation_id)
     context = session[2] if session else {}
@@ -224,7 +215,6 @@ async def encontrar_unidade_mais_proxima(
     
     if not lat_usuario or not lon_usuario:
         print("❌ Coordenadas do usuário não disponíveis")
-        registrar_assunto(ctx, "nao_encontrou_unidade_sem_coordenadas")
         return "❌ Não foi possível determinar sua localização."
     
     # Carrega unidades
@@ -258,12 +248,6 @@ async def encontrar_unidade_mais_proxima(
         'unidade_encontrada': unidade_proxima
     })
     
-    # Registra assunto baseado na origem (CEP ou bairro)
-    if context.get('cep_informado'):
-        registrar_assunto(ctx, "encontrou_unidade_cep")
-    else:
-        registrar_assunto(ctx, "encontrou_unidade_bairro")
-    
     # Formata resposta
     distancia_formatada = f"{unidade_proxima['distancia_km']:.1f} km"
     
@@ -288,6 +272,115 @@ Deseja consultar outra unidade?"""
 
 
 @Tool
+async def encontrar_unidades_no_raio(
+    ctx: RunContext[MyDeps]
+) -> str:
+    """
+    Encontra unidades num raio de 5km da unidade mais próxima.
+    Retorna até 5 unidades mais próximas para o usuário escolher.
+    Usa latitude e longitude do contexto.
+    
+    Returns:
+        str: "UNICA|dados" ou "MULTIPLAS|lista_nomes" ou "NAO_ENCONTRADO"
+    """
+    conversation_id = ctx.deps.session_id
+    
+    # Busca dados do contexto
+    session = get_session(conversation_id)
+    context = session[2] if session else {}
+    
+    if isinstance(context, str):
+        try:
+            context = json.loads(context) if context else {}
+        except:
+            context = {}
+    
+    lat_usuario = context.get('latitude_usuario')
+    lon_usuario = context.get('longitude_usuario')
+    
+    print("=" * 80)
+    print("📍 TOOL: encontrar_unidades_no_raio")
+    print(f"Lat usuário: {lat_usuario}")
+    print(f"Lon usuário: {lon_usuario}")
+    print("=" * 80)
+    
+    if not lat_usuario or not lon_usuario:
+        print("❌ Coordenadas do usuário não disponíveis")
+        return "NAO_ENCONTRADO"
+    
+    # Carrega unidades
+    unidades, link_todas = _carregar_unidades()
+    
+    if not unidades:
+        print("❌ Nenhuma unidade cadastrada")
+        return "NAO_ENCONTRADO"
+    
+    # Calcula distância para cada unidade
+    usuario_coords = (lat_usuario, lon_usuario)
+    unidades_com_distancia = []
+    
+    for unidade in unidades:
+        unidade_coords = (unidade['latitude'], unidade['longitude'])
+        distancia_km = geodesic(usuario_coords, unidade_coords).kilometers
+        
+        unidades_com_distancia.append({
+            **unidade,
+            'distancia_km': distancia_km
+        })
+    
+    # Ordena por distância
+    unidades_com_distancia.sort(key=lambda x: x['distancia_km'])
+    
+    # Pega a mais próxima
+    unidade_proxima = unidades_com_distancia[0]
+    
+    # Busca outras unidades num raio de 5km da mais próxima
+    raio_km = 5.0
+    unidades_no_raio = []
+    
+    for unidade in unidades_com_distancia:
+        if unidade['nome'] != unidade_proxima['nome']:  # Exclui a própria unidade
+            unidade_coords = (unidade['latitude'], unidade['longitude'])
+            proxima_coords = (unidade_proxima['latitude'], unidade_proxima['longitude'])
+            distancia_da_proxima = geodesic(proxima_coords, unidade_coords).kilometers
+            
+            if distancia_da_proxima <= raio_km:
+                unidades_no_raio.append(unidade)
+    
+    # Se não encontrou outras unidades no raio, retorna apenas a mais próxima
+    if not unidades_no_raio:
+        print(f"✅ Apenas uma unidade encontrada: {unidade_proxima['nome']}")
+        print("=" * 80)
+        
+        # Armazena no contexto
+        update_context(conversation_id, {
+            'unidade_encontrada': unidade_proxima,
+            'unidades_multiplas': None
+        })
+        
+        dados = f"{unidade_proxima['nome']}|{unidade_proxima['endereco_completo']}|{unidade_proxima['telefone']}|{unidade_proxima['whatsapp']}|{unidade_proxima['email']}|{unidade_proxima['horario_funcionamento']}|{unidade_proxima['link_maps']}"
+        return f"UNICA|{dados}"
+    
+    # Se encontrou outras unidades no raio, retorna lista (máximo 5)
+    todas_unidades = [unidade_proxima] + unidades_no_raio[:4]  # Máximo 5 unidades
+    
+    print(f"✅ Múltiplas unidades encontradas: {len(todas_unidades)}")
+    for u in todas_unidades:
+        print(f"   - {u['nome']}")
+    print("=" * 80)
+    
+    # Armazena no contexto
+    update_context(conversation_id, {
+        'unidade_encontrada': unidade_proxima,
+        'unidades_multiplas': todas_unidades
+    })
+    
+    # Retorna lista de nomes
+    lista_nomes = [u['nome'] for u in todas_unidades]
+    return f"MULTIPLAS|{'|'.join(lista_nomes)}"
+
+
+@Tool
 async def buscar_bairros_por_nome(
     ctx: RunContext[MyDeps],
     nome_bairro: str
@@ -303,9 +396,6 @@ async def buscar_bairros_por_nome(
         str: "UNICO|cidade|estado" ou "MULTIPLOS|lista" ou "NAO_ENCONTRADO"
     """
     conversation_id = ctx.deps.session_id
-    
-    # Registra step
-    registrar_step(ctx, "busca_bairro")
     
     print("=" * 80)
     print("🔍 TOOL: buscar_bairros_por_nome")
@@ -331,7 +421,6 @@ async def buscar_bairros_por_nome(
         
         if not data:
             print("❌ Bairro não encontrado")
-            registrar_assunto(ctx, "nao_encontrou_unidade_bairro")
             return "NAO_ENCONTRADO"
         
         # Filtra apenas resultados do Brasil
@@ -353,7 +442,6 @@ async def buscar_bairros_por_nome(
         
         if not resultados_brasil:
             print("❌ Nenhum resultado no Brasil")
-            registrar_assunto(ctx, "nao_encontrou_unidade_bairro")
             return "NAO_ENCONTRADO"
         
         # Remove duplicatas (mesma cidade/estado)
@@ -386,8 +474,6 @@ async def buscar_bairros_por_nome(
         
         else:
             # Múltiplos bairros encontrados
-            registrar_step(ctx, "mais_de_um_bairro")
-            
             lista_bairros = []
             for i, r in enumerate(resultados_unicos[:5], 1):  # Limita a 5
                 lista_bairros.append(f"{i}. {r['bairro']} - {r['cidade']}/{r['estado']}")
@@ -415,8 +501,6 @@ async def listar_todas_unidades(
     Returns:
         str: Lista formatada de todas as unidades
     """
-    registrar_step(ctx, "listar_todas_unidades")
-    
     print("=" * 80)
     print("📋 TOOL: listar_todas_unidades")
     print("=" * 80)

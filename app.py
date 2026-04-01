@@ -83,15 +83,39 @@ async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_a
     session = get_session(session_id)
     context = session[2] if session else {}
     
+    print("=" * 80)
+    print("🔍 DEBUG: Contexto carregado do banco")
+    print(f"Tipo do context: {type(context)}")
+    print(f"Context raw: {context}")
+    print("=" * 80)
+    
     if isinstance(context, str):
         try:
             context = json.loads(context) if context else {}
+            print("✅ Context deserializado de JSON")
         except:
             context = {}
+            print("❌ Erro ao deserializar context")
+    
+    # Debug de unidades_multiplas especificamente
+    unidades_multiplas = context.get('unidades_multiplas')
+    print("=" * 80)
+    print("🔍 DEBUG: unidades_multiplas")
+    print(f"Tipo: {type(unidades_multiplas)}")
+    print(f"Valor: {unidades_multiplas}")
+    print(f"Length: {len(unidades_multiplas) if unidades_multiplas else 0}")
+    print("=" * 80)
     
     # Cria deps com contexto
     context.setdefault("session_id", session_id)
     deps = MyDeps(**context)
+    
+    print("=" * 80)
+    print("🔍 DEBUG: deps.unidades_multiplas após criar MyDeps")
+    print(f"Tipo: {type(deps.unidades_multiplas)}")
+    print(f"Valor: {deps.unidades_multiplas}")
+    print(f"Length: {len(deps.unidades_multiplas) if deps.unidades_multiplas else 0}")
+    print("=" * 80)
     
     print(f"🤖 Executando agent com {len(history)} mensagens no histórico")
     
@@ -123,15 +147,32 @@ async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_a
     # Salva novas mensagens
     add_messages(session_id, result.new_messages())
     
-    # Extrai contexto atualizado do deps e salva no banco
+    # IMPORTANTE: Recarrega contexto do banco pois as tools podem ter atualizado via update_context
+    session_updated = get_session(session_id)
+    context_from_db = session_updated[2] if session_updated else {}
+    
+    if isinstance(context_from_db, str):
+        try:
+            context_from_db = json.loads(context_from_db) if context_from_db else {}
+        except:
+            context_from_db = {}
+    
+    print("=" * 80)
+    print("🔄 DEBUG: Contexto RECARREGADO do banco após agent")
+    print(f"unidades_multiplas no banco: {context_from_db.get('unidades_multiplas')}")
+    print(f"Length: {len(context_from_db.get('unidades_multiplas')) if context_from_db.get('unidades_multiplas') else 0}")
+    print("=" * 80)
+    
+    # Mescla deps (que pode ter sido atualizado pelo agent) com contexto do banco (atualizado pelas tools)
     context_updated = {
-        "cep_informado": deps.cep_informado,
-        "bairro_informado": deps.bairro_informado,
-        "cidade_informada": deps.cidade_informada,
-        "estado_informado": deps.estado_informado,
-        "latitude_usuario": deps.latitude_usuario,
-        "longitude_usuario": deps.longitude_usuario,
-        "unidade_encontrada": deps.unidade_encontrada,
+        "cep_informado": context_from_db.get('cep_informado') or deps.cep_informado,
+        "bairro_informado": context_from_db.get('bairro_informado') or deps.bairro_informado,
+        "cidade_informada": context_from_db.get('cidade_informada') or deps.cidade_informada,
+        "estado_informado": context_from_db.get('estado_informado') or deps.estado_informado,
+        "latitude_usuario": context_from_db.get('latitude_usuario') or deps.latitude_usuario,
+        "longitude_usuario": context_from_db.get('longitude_usuario') or deps.longitude_usuario,
+        "unidade_encontrada": context_from_db.get('unidade_encontrada') or deps.unidade_encontrada,
+        "unidades_multiplas": context_from_db.get('unidades_multiplas') or deps.unidades_multiplas,  # Prioriza banco
         "tentativas_agendamento": deps.tentativas_agendamento,
         "quer_reagendar": deps.quer_reagendar,
         "quer_info_reagendamento": deps.quer_info_reagendamento,
