@@ -5,6 +5,7 @@ Tools para o Bot Central - Geolocalização e Informações de Unidades
 import os
 import requests
 import json
+import time
 from pydantic_ai import RunContext
 from pydantic_ai.tools import Tool
 from agents.deps import MyDeps
@@ -19,11 +20,171 @@ def _carregar_unidades():
     """Carrega dados das unidades do arquivo JSON"""
     try:
         with open('data/unidades.json', 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            return data['unidades'], data['link_todas_unidades']
+            unidades = json.load(f)
+            return unidades, "https://buddhaspa.com.br/unidades"
     except Exception as e:
         print(f"❌ Erro ao carregar unidades: {e}")
         return [], "https://buddhaspa.com.br/unidades"
+
+
+def _geocode_por_cep_sync(cep: str) -> tuple:
+    """Geocodifica CEP para sincronização com API (usado apenas para novas unidades)"""
+    try:
+        cep_limpo = re.sub(r'[^0-9]', '', cep)
+        if len(cep_limpo) != 8:
+            return None, None
+        
+        # ViaCEP
+        response = requests.get(f'https://viacep.com.br/ws/{cep_limpo}/json/', timeout=5)
+        if response.status_code != 200 or response.json().get('erro'):
+            return None, None
+        
+        data = response.json()
+        logradouro = data.get('logradouro', '')
+        bairro = data.get('bairro', '')
+        cidade = data.get('localidade', '')
+        uf = data.get('uf', '')
+        
+        if logradouro:
+            endereco = f"{logradouro}, {bairro}, {cidade} - {uf}, Brasil"
+        else:
+            endereco = f"{cidade} - {uf}, Brasil"
+        
+        # Nominatim
+        time.sleep(1)
+        url = "https://nominatim.openstreetmap.org/search"
+        params = {'q': endereco, 'format': 'json', 'limit': 1}
+        headers = {'User-Agent': 'BuddhaSpaBot/1.0'}
+        
+        response = requests.get(url, params=params, headers=headers, timeout=10)
+        if response.status_code == 200:
+            results = response.json()
+            if results and len(results) > 0:
+                return float(results[0]['lat']), float(results[0]['lon'])
+        
+        return None, None
+    except:
+        return None, None
+
+
+def _sincronizar_unidades_com_api():
+    """
+    Sincroniza unidades.json com a API de franqueadas se houver diferenças.
+    Ignora latitude/longitude na comparação.
+    Geocodifica novas unidades ou unidades com endereço alterado.
+    """
+    try:
+        print("🔄 Sincronizando com API de franqueadas...")
+        
+        # Busca token da API
+        api_token = os.getenv('PRD_LABELLE_TOKEN', '')
+        if not api_token:
+            print("⚠️ Token da API não configurado, usando dados locais")
+            return False
+        
+        # Chama API
+        headers = {'Authorization': api_token}
+        response = requests.get(
+            'https://app.bellesoftware.com.br/api/release/controller/IntegracaoExterna/v1.0/franqueadas',
+            headers=headers,
+            timeout=10
+        )
+        
+        if response.status_code != 200:
+            print(f"⚠️ Erro na API (status {response.status_code}), usando dados locais")
+            return False
+        
+        franqueadas_api = response.json()
+        
+        # Carrega dados locais
+        try:
+            with open('data/unidades.json', 'r', encoding='utf-8') as f:
+                unidades_locais = json.load(f)
+        except:
+            unidades_locais = []
+        
+        # Cria dicionário de unidades locais por ID para comparação
+        locais_por_id = {u.get('id'): u for u in unidades_locais if u.get('id')}
+        
+        # Compara ignorando latitude/longitude
+        def campos_relevantes(unidade):
+            """Retorna apenas campos relevantes para comparação (sem lat/lon)"""
+            campos = unidade.copy()
+            campos.pop('latitude', None)
+            campos.pop('longitude', None)
+            return campos
+        
+        precisa_atualizar = False
+        unidades_para_geocodificar = []
+        
+        # Verifica cada unidade da API
+        for unidade_api in franqueadas_api:
+            unidade_id = unidade_api.get('id')
+            
+            if unidade_id in locais_por_id:
+                # Unidade existe localmente, compara campos relevantes
+                local = locais_por_id[unidade_id]
+                
+                if campos_relevantes(unidade_api) != campos_relevantes(local):
+                    # Endereço ou outros dados mudaram
+                    print(f"   📝 Unidade alterada: {unidade_api.get('nomeFantasiaFranqueada')}")
+                    precisa_atualizar = True
+                    unidades_para_geocodificar.append(unidade_api)
+                else:
+                    # Mantém lat/lon existentes
+                    if 'latitude' in local:
+                        unidade_api['latitude'] = local['latitude']
+                    if 'longitude' in local:
+                        unidade_api['longitude'] = local['longitude']
+            else:
+                # Nova unidade
+                print(f"   ➕ Nova unidade: {unidade_api.get('nomeFantasiaFranqueada')}")
+                precisa_atualizar = True
+                unidades_para_geocodificar.append(unidade_api)
+        
+        # Verifica se alguma unidade foi removida
+        ids_api = {u.get('id') for u in franqueadas_api}
+        ids_locais = set(locais_por_id.keys())
+        removidas = ids_locais - ids_api
+        if removidas:
+            print(f"   ➖ Unidades removidas: {len(removidas)}")
+            precisa_atualizar = True
+        
+        if not precisa_atualizar:
+            print("✅ unidades.json já está atualizado")
+            return False
+        
+        # Geocodifica unidades novas ou alteradas
+        if unidades_para_geocodificar:
+            print(f"🌍 Geocodificando {len(unidades_para_geocodificar)} unidades...")
+            
+            for unidade in unidades_para_geocodificar:
+                # Tenta geocodificar por CEP
+                cep = unidade.get('cepFranqueada', '')
+                if cep:
+                    lat, lon = _geocode_por_cep_sync(cep)
+                    if lat and lon:
+                        unidade['latitude'] = lat
+                        unidade['longitude'] = lon
+                        print(f"   ✓ {unidade.get('nomeFantasiaFranqueada')}")
+                    else:
+                        print(f"   ⚠️ Falhou: {unidade.get('nomeFantasiaFranqueada')}")
+        
+        # Salva nova versão
+        print(f"💾 Salvando unidades.json...")
+        print(f"   API: {len(franqueadas_api)} unidades")
+        print(f"   Local: {len(unidades_locais)} unidades")
+        
+        with open('data/unidades.json', 'w', encoding='utf-8') as f:
+            json.dump(franqueadas_api, f, ensure_ascii=False, indent=4)
+        
+        print("✅ unidades.json atualizado com sucesso")
+        return True
+            
+    except Exception as e:
+        print(f"⚠️ Erro ao sincronizar com API: {e}")
+        print("   Continuando com dados locais...")
+        return False
 
 
 @Tool
@@ -33,6 +194,7 @@ async def buscar_endereco_por_cep(
 ) -> str:
     """
     Valida CEP e retorna endereço completo usando ViaCEP.
+    TAMBÉM sincroniza unidades.json com a API de franqueadas.
     
     Args:
         cep: CEP informado pelo usuário (com ou sem hífen)
@@ -50,6 +212,9 @@ async def buscar_endereco_por_cep(
     print(f"CEP informado: {cep}")
     print(f"CEP limpo: {cep_limpo}")
     print("=" * 80)
+    
+    # Sincroniza com API de franqueadas
+    _sincronizar_unidades_com_api()
     
     # Valida formato
     if len(cep_limpo) != 8:
@@ -224,18 +389,52 @@ async def encontrar_unidade_mais_proxima(
         print("❌ Nenhuma unidade cadastrada")
         return f"❌ Erro ao carregar unidades. Veja todas em: {link_todas}"
     
+    print(f"✅ {len(unidades)} unidades carregadas")
+    
     # Calcula distância para cada unidade
     usuario_coords = (lat_usuario, lon_usuario)
     unidades_com_distancia = []
     
     for unidade in unidades:
-        unidade_coords = (unidade['latitude'], unidade['longitude'])
+        # Pula se não tiver lat/lon pré-calculados
+        if not unidade.get('latitude') or not unidade.get('longitude'):
+            continue
+        
+        lat = unidade['latitude']
+        lon = unidade['longitude']
+        
+        unidade_coords = (lat, lon)
         distancia_km = geodesic(usuario_coords, unidade_coords).kilometers
         
+        # Monta endereço completo
+        endereco_completo = f"{unidade.get('enderecoFranqueada', '')}, {unidade.get('numeroFranqueada', '')}"
+        if unidade.get('bairroFranqueada'):
+            endereco_completo += f" - {unidade['bairroFranqueada']}"
+        if unidade.get('cidadeFranqueada'):
+            endereco_completo += f", {unidade['cidadeFranqueada']}"
+        if unidade.get('ufFranqueada'):
+            endereco_completo += f" - {unidade['ufFranqueada']}"
+        if unidade.get('cepFranqueada'):
+            endereco_completo += f", CEP: {unidade['cepFranqueada']}"
+        
         unidades_com_distancia.append({
-            **unidade,
+            'id': unidade.get('id'),
+            'nome': unidade.get('nomeFantasiaFranqueada', 'Buddha Spa'),
+            'endereco_completo': endereco_completo,
+            'cep': unidade.get('cepFranqueada', ''),
+            'telefone': unidade.get('telefoneFranqueada', ''),
+            'whatsapp': unidade.get('celularFranqueada', ''),
+            'email': unidade.get('emailFranqueada', ''),
+            'horario_funcionamento': 'Consulte a unidade',
+            'latitude': lat,
+            'longitude': lon,
+            'link_maps': unidade.get('link_maps', f"https://maps.google.com/?q={lat},{lon}"),
             'distancia_km': distancia_km
         })
+    
+    if not unidades_com_distancia:
+        print("❌ Nenhuma unidade válida encontrada")
+        return f"❌ Não encontrei unidades próximas. Veja todas em: {link_todas}"
     
     # Ordena por distância
     unidades_com_distancia.sort(key=lambda x: x['distancia_km'])
@@ -315,18 +514,52 @@ async def encontrar_unidades_no_raio(
         print("❌ Nenhuma unidade cadastrada")
         return "NAO_ENCONTRADO"
     
+    print(f"✅ {len(unidades)} unidades carregadas")
+    
     # Calcula distância para cada unidade
     usuario_coords = (lat_usuario, lon_usuario)
     unidades_com_distancia = []
     
     for unidade in unidades:
-        unidade_coords = (unidade['latitude'], unidade['longitude'])
+        # Pula se não tiver lat/lon pré-calculados
+        if not unidade.get('latitude') or not unidade.get('longitude'):
+            continue
+        
+        lat = unidade['latitude']
+        lon = unidade['longitude']
+        
+        unidade_coords = (lat, lon)
         distancia_km = geodesic(usuario_coords, unidade_coords).kilometers
         
+        # Monta endereço completo
+        endereco_completo = f"{unidade.get('enderecoFranqueada', '')}, {unidade.get('numeroFranqueada', '')}"
+        if unidade.get('bairroFranqueada'):
+            endereco_completo += f" - {unidade['bairroFranqueada']}"
+        if unidade.get('cidadeFranqueada'):
+            endereco_completo += f", {unidade['cidadeFranqueada']}"
+        if unidade.get('ufFranqueada'):
+            endereco_completo += f" - {unidade['ufFranqueada']}"
+        if unidade.get('cepFranqueada'):
+            endereco_completo += f", CEP: {unidade['cepFranqueada']}"
+        
         unidades_com_distancia.append({
-            **unidade,
+            'id': unidade.get('id'),
+            'nome': unidade.get('nomeFantasiaFranqueada', 'Buddha Spa'),
+            'endereco_completo': endereco_completo,
+            'cep': unidade.get('cepFranqueada', ''),
+            'telefone': unidade.get('telefoneFranqueada', ''),
+            'whatsapp': unidade.get('celularFranqueada', ''),
+            'email': unidade.get('emailFranqueada', ''),
+            'horario_funcionamento': 'Consulte a unidade',
+            'latitude': lat,
+            'longitude': lon,
+            'link_maps': unidade.get('link_maps', f"https://maps.google.com/?q={lat},{lon}"),
             'distancia_km': distancia_km
         })
+    
+    if not unidades_com_distancia:
+        print("❌ Nenhuma unidade válida encontrada")
+        return "NAO_ENCONTRADO"
     
     # Ordena por distância
     unidades_com_distancia.sort(key=lambda x: x['distancia_km'])
@@ -510,18 +743,38 @@ async def listar_todas_unidades(
     if not unidades:
         return f"❌ Erro ao carregar unidades. Veja todas em: {link_todas}"
     
+    print(f"✅ {len(unidades)} unidades carregadas")
+    
     mensagem = "📍 **Todas as unidades Buddha Spa:**\n\n"
     
     for unidade in unidades:
-        mensagem += f"**{unidade['nome']}**\n"
-        mensagem += f"📍 {unidade['endereco_completo']}\n"
-        mensagem += f"📞 {unidade['telefone']}\n"
-        mensagem += f"📱 {unidade['whatsapp']}\n"
-        mensagem += f"🗺️ {unidade['link_maps']}\n\n"
+        # Pula se não tiver lat/lon pré-calculados
+        if not unidade.get('latitude') or not unidade.get('longitude'):
+            continue
+        
+        lat = unidade['latitude']
+        lon = unidade['longitude']
+        
+        # Monta endereço completo
+        endereco_completo = f"{unidade.get('enderecoFranqueada', '')}, {unidade.get('numeroFranqueada', '')}"
+        if unidade.get('bairroFranqueada'):
+            endereco_completo += f" - {unidade['bairroFranqueada']}"
+        if unidade.get('cidadeFranqueada'):
+            endereco_completo += f", {unidade['cidadeFranqueada']}"
+        if unidade.get('ufFranqueada'):
+            endereco_completo += f" - {unidade['ufFranqueada']}"
+        if unidade.get('cepFranqueada'):
+            endereco_completo += f", CEP: {unidade['cepFranqueada']}"
+        
+        mensagem += f"**{unidade.get('nomeFantasiaFranqueada', 'Buddha Spa')}**\n"
+        mensagem += f"📍 {endereco_completo}\n"
+        mensagem += f"📞 {unidade.get('telefoneFranqueada', 'N/A')}\n"
+        mensagem += f"📱 {unidade.get('celularFranqueada', 'N/A')}\n"
+        mensagem += f"🗺️ {unidade.get('link_maps', f'https://maps.google.com/?q={lat},{lon}')}\n\n"
     
     mensagem += f"\n🔗 Ver todas no site: {link_todas}"
     
-    print(f"✅ Listadas {len(unidades)} unidades")
+    print(f"✅ Unidades listadas com sucesso")
     print("=" * 80)
     
     return mensagem
