@@ -10,6 +10,11 @@ services:
     environment:
       LOGFIRE_TOKEN: ${LOGFIRE_TOKEN}
       PORT: 8001
+      DB_HOST: postgres_central
+      DB_NAME: bot_central
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_PORT: 5432
     depends_on:
       - postgres_central
     networks:

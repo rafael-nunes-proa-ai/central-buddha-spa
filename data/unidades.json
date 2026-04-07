@@ -846,8 +846,8 @@
         "celularFranqueada": "(11)93465-5980",
         "emailFranqueada": "administracao@buddhaspa.com.br",
         "particularidades": null,
-        "latitude": -23.5383214,
-        "longitude": -46.6391624
+        "latitude": -23.540101,
+        "longitude": -46.661699
     },
     {
         "id": 3,
@@ -1146,8 +1146,8 @@
         "celularFranqueada": "(11)94530-2073",
         "emailFranqueada": "administracao.villalobos@buddhaspa.com.br",
         "particularidades": null,
-        "latitude": -23.5383214,
-        "longitude": -46.6391624
+        "latitude": -23.857508,
+        "longitude": -46.706508
     },
     {
         "id": 29,
@@ -1221,8 +1221,8 @@
         "celularFranqueada": "(11)93450-3344",
         "emailFranqueada": "administracao.granestanplaza@buddhaspa.com.br",
         "particularidades": null,
-        "latitude": -23.5383214,
-        "longitude": -46.6391624
+        "latitude": -23.610159,
+        "longitude": -46.695003
     },
     {
         "id": 34,
@@ -1396,8 +1396,8 @@
         "celularFranqueada": "(11)93232-8553",
         "emailFranqueada": "administracao.vilaclementino@buddhaspa.com.br",
         "particularidades": null,
-        "latitude": -23.5383214,
-        "longitude": -46.6391624
+        "latitude": -23.600579,
+        "longitude": -46.639092
     },
     {
         "id": 1833,
@@ -1546,8 +1546,8 @@
         "celularFranqueada": "(11)99246-2892",
         "emailFranqueada": "adm.ecofitcerrocora@buddhaspa.com.br",
         "particularidades": null,
-        "latitude": -23.5383214,
-        "longitude": -46.6391624
+        "latitude": -23.540382,
+        "longitude": -46.70302
     },
     {
         "id": 2794,
@@ -1645,9 +1645,7 @@
         "telefoneFranqueada": "(11)5536-5530",
         "celularFranqueada": "",
         "emailFranqueada": "adm.avmorumbibrooklin@buddhaspa.com.br",
-        "particularidades": null,
-        "latitude": -23.5383214,
-        "longitude": -46.6391624
+        "particularidades": null
     },
     {
         "id": 3169,
@@ -1896,8 +1894,8 @@
         "celularFranqueada": "",
         "emailFranqueada": "ricardo@espacoprana.com.br",
         "particularidades": null,
-        "latitude": -23.5383214,
-        "longitude": -46.6391624
+        "latitude": -23.507311,
+        "longitude": -46.577892
     },
     {
         "id": 3684,
@@ -2095,9 +2093,7 @@
         "telefoneFranqueada": "",
         "celularFranqueada": "",
         "emailFranqueada": "adm.jardimbonfiglioli@gmail.com",
-        "particularidades": null,
-        "latitude": -23.5383214,
-        "longitude": -46.6391624
+        "particularidades": null
     },
     {
         "id": 4059,
@@ -2121,8 +2117,8 @@
         "celularFranqueada": "",
         "emailFranqueada": "administracao.morumbi@buddhaspa.com.br",
         "particularidades": null,
-        "latitude": -23.5383214,
-        "longitude": -46.6391624
+        "latitude": -23.59608,
+        "longitude": -46.708885
     },
     {
         "id": 2511,
@@ -2843,7 +2839,7 @@
         "cnpjFranqueada": "61.908.312/0001-92",
         "cepFranqueada": "05352-080",
         "ufFranqueada": "SP",
-        "cidadeFranqueada": null,
+        "cidadeFranqueada": "São Paulo",
         "enderecoFranqueada": "Rua Marechal Olímpio Mourão Filho",
         "numeroFranqueada": "92",
         "bairroFranqueada": "Vila São Francisco",
@@ -2851,7 +2847,9 @@
         "telefoneFranqueada": "",
         "celularFranqueada": "",
         "emailFranqueada": "administracao.vilasaofrancisco@buddhaspa.com.br",
-        "particularidades": null
+        "particularidades": null,
+        "latitude": -23.557337,
+        "longitude": -46.757815
     },
     {
         "id": 2875,
@@ -3165,7 +3163,7 @@
         "cnpjFranqueada": "51.779.246/0002-25",
         "cepFranqueada": "04508-030",
         "ufFranqueada": "SP",
-        "cidadeFranqueada": null,
+        "cidadeFranqueada": "São Paulo",
         "enderecoFranqueada": "Rua João Lourenço",
         "numeroFranqueada": "617",
         "bairroFranqueada": "Vila Nova Conceição",
@@ -3173,7 +3171,9 @@
         "telefoneFranqueada": "(11)3045-7990",
         "celularFranqueada": "(11)91441-8694",
         "emailFranqueada": "adm.vilanovaconceicao@buddhaspa.com.br",
-        "particularidades": null
+        "particularidades": null,
+        "latitude": -23.592998,
+        "longitude": -46.669198
     },
     {
         "id": 3069,
@@ -3211,7 +3211,7 @@
         "cnpjFranqueada": "48.967.435/0002-17",
         "cepFranqueada": "07115-080",
         "ufFranqueada": "SP",
-        "cidadeFranqueada": null,
+        "cidadeFranqueada": "Guarulhos",
         "enderecoFranqueada": "Rua Josephina Mandotti",
         "numeroFranqueada": "99",
         "bairroFranqueada": "Jardim Maia",
@@ -3219,7 +3219,9 @@
         "telefoneFranqueada": "(11)2441-9559",
         "celularFranqueada": "(11)94472-7946",
         "emailFranqueada": "adm.bosquemaia@buddhaspa.com.br",
-        "particularidades": null
+        "particularidades": null,
+        "latitude": -23.4588843,
+        "longitude": -46.5090214
     },
     {
         "id": 3130,
@@ -3234,7 +3236,7 @@
         "cnpjFranqueada": "53.099.622/0001-85",
         "cepFranqueada": "11726-900",
         "ufFranqueada": "SP",
-        "cidadeFranqueada": null,
+        "cidadeFranqueada": "Praia Grande",
         "enderecoFranqueada": "Avenida Ayrton Senna da Silva",
         "numeroFranqueada": "1511",
         "bairroFranqueada": "Xixová",
@@ -3242,7 +3244,9 @@
         "telefoneFranqueada": "(13)3034-1592",
         "celularFranqueada": "(13)99650-0001",
         "emailFranqueada": "adm.litoralplaza@buddhaspa.com.br",
-        "particularidades": null
+        "particularidades": null,
+        "latitude": -23.9902505,
+        "longitude": -46.4013806
     },
     {
         "id": 3211,
@@ -3257,7 +3261,7 @@
         "cnpjFranqueada": "54.348.367/0001-20",
         "cepFranqueada": "03176-000",
         "ufFranqueada": "SP",
-        "cidadeFranqueada": null,
+        "cidadeFranqueada": "São Paulo",
         "enderecoFranqueada": "Rua Tobias Barreto",
         "numeroFranqueada": "735",
         "bairroFranqueada": "Mooca",
@@ -3265,7 +3269,9 @@
         "telefoneFranqueada": "",
         "celularFranqueada": "",
         "emailFranqueada": "adm.altodamooca@buddhaspa.com.br",
-        "particularidades": null
+        "particularidades": null,
+        "latitude": -23.5520884,
+        "longitude": -46.5902925
     },
     {
         "id": 3350,
