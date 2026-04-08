@@ -61,7 +61,7 @@ async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_a
     conversation_id = req.conversation_id
     
     # Comando manual de encerramento
-    if message.lower() in ["sair", "encerrar"]:
+    if message and isinstance(message, str) and message.lower() in ["sair", "encerrar"]:
         return {"response": "Obrigado por entrar em contato com a Buddha Spa! 😊\n\nVolte sempre que precisar! 🙏"}
     
     # Sessão separada com prefixo para isolamento
@@ -83,39 +83,15 @@ async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_a
     session = get_session(session_id)
     context = session[2] if session else {}
     
-    print("=" * 80)
-    print("🔍 DEBUG: Contexto carregado do banco")
-    print(f"Tipo do context: {type(context)}")
-    print(f"Context raw: {context}")
-    print("=" * 80)
-    
     if isinstance(context, str):
         try:
             context = json.loads(context) if context else {}
-            print("✅ Context deserializado de JSON")
         except:
             context = {}
-            print("❌ Erro ao deserializar context")
-    
-    # Debug de unidades_multiplas especificamente
-    unidades_multiplas = context.get('unidades_multiplas')
-    print("=" * 80)
-    print("🔍 DEBUG: unidades_multiplas")
-    print(f"Tipo: {type(unidades_multiplas)}")
-    print(f"Valor: {unidades_multiplas}")
-    print(f"Length: {len(unidades_multiplas) if unidades_multiplas else 0}")
-    print("=" * 80)
     
     # Cria deps com contexto
     context.setdefault("session_id", session_id)
     deps = MyDeps(**context)
-    
-    print("=" * 80)
-    print("🔍 DEBUG: deps.unidades_multiplas após criar MyDeps")
-    print(f"Tipo: {type(deps.unidades_multiplas)}")
-    print(f"Valor: {deps.unidades_multiplas}")
-    print(f"Length: {len(deps.unidades_multiplas) if deps.unidades_multiplas else 0}")
-    print("=" * 80)
     
     print(f"🤖 Executando agent com {len(history)} mensagens no histórico")
     
