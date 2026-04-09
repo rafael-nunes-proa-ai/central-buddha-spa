@@ -57,15 +57,50 @@ async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_a
     Endpoint do Bot Central - Informações de Contato e Geolocalização
     Bot independente para fornecer contatos das unidades e encontrar unidade mais próxima
     """
+    from store.database import delete_session
+    
     message = req.message
     conversation_id = req.conversation_id
     
-    # Comando manual de encerramento
-    if message and isinstance(message, str) and message.lower() in ["sair", "encerrar"]:
-        return {"response": "Obrigado por entrar em contato com a Buddha Spa! 😊\n\nVolte sempre que precisar! 🙏"}
-    
     # Sessão separada com prefixo para isolamento
     session_id = f"central_{conversation_id}"
+    
+    # Comando manual de encerramento - Detecta palavras e deleta sessão
+    if message and isinstance(message, str) and message.lower() in ["sair", "encerrar"]:
+        print("=" * 80)
+        print("🔴 FINALIZAR_SESSAO - PALAVRA DE ENCERRAMENTO DETECTADA")
+        print(f"Conversation ID: {conversation_id}")
+        print(f"Session ID (com prefixo): {session_id}")
+        print(f"Mensagem recebida: {message}")
+        print("=" * 80)
+        
+        # Verifica se sessão existe antes de deletar
+        session_antes = get_session(session_id)
+        if session_antes:
+            print(f"📊 Sessão encontrada no banco:")
+            print(f"   - Agente atual: {session_antes[1]}")
+            print(f"   - Última atualização: {session_antes[3]}")
+        else:
+            print("⚠️  Sessão não encontrada no banco (pode já ter sido deletada)")
+        
+        print("🗑️  Deletando sessão do banco de dados...")
+        delete_session(session_id)
+        
+        # Verifica se sessão foi realmente deletada
+        session_depois = get_session(session_id)
+        if session_depois is None:
+            print("✅ CONFIRMADO: Sessão deletada com sucesso do banco de dados")
+        else:
+            print("❌ ERRO: Sessão ainda existe no banco após delete_session()")
+            print(f"   Dados da sessão: {session_depois}")
+        
+        print("🚩 Flag finalizar_sessao: TRUE")
+        print("📤 Retornando resposta de despedida para React Flow")
+        print("=" * 80)
+        return {
+            "response": "Obrigado por entrar em contato com a Buddha Spa! 😊\n\nVolte sempre que precisar! 🙏",
+            "finalizar_sessao": True  # Flag para React Flow encerrar
+        }
     
     print("=" * 80)
     print("🏢 BOT CENTRAL - NOVA MENSAGEM")

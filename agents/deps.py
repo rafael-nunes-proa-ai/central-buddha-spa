@@ -33,3 +33,6 @@ class MyDeps:
     # TRACKING DE NAVEGAÇÃO
     steps: Optional[list[str]] = None  # Histórico de steps percorridos pelo usuário
     assuntos: Optional[list[str]] = None  # Histórico de assuntos/temas da conversa (ex: contato unidade)
+    
+    # CONTROLE DE FINALIZAÇÃO
+    finalizar_sessao: Optional[bool] = None  # Flag para React Flow encerrar conversa
