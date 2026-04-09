@@ -452,7 +452,7 @@ async def encontrar_unidade_mais_proxima(
     
     mensagem = f"""✅ Encontrei a unidade mais próxima de você! 😊
 
-📍 **{unidade_proxima['nome']}**
+📍 *{unidade_proxima['nome']}*
 📏 Distância: {distancia_formatada}
 🏠 Endereço: {unidade_proxima['endereco_completo']}
 📞 Telefone: {unidade_proxima['telefone']}
@@ -731,7 +731,7 @@ async def listar_todas_unidades(
     
     print(f"✅ {len(unidades)} unidades carregadas")
     
-    mensagem = "📍 **Todas as unidades Buddha Spa:**\n\n"
+    mensagem = "📍 *Todas as unidades Buddha Spa:*\n\n"
     
     for unidade in unidades:
         # Pula se não tiver lat/lon pré-calculados
@@ -752,7 +752,7 @@ async def listar_todas_unidades(
         if unidade.get('cepFranqueada'):
             endereco_completo += f", CEP: {unidade['cepFranqueada']}"
         
-        mensagem += f"**{unidade.get('nomeFantasiaFranqueada', 'Buddha Spa')}**\n"
+        mensagem += f"*{unidade.get('nomeFantasiaFranqueada', 'Buddha Spa')}*\n"
         mensagem += f"📍 {endereco_completo}\n"
         mensagem += f"📞 {unidade.get('telefoneFranqueada', 'N/A')}\n"
         mensagem += f"📱 {unidade.get('celularFranqueada', 'N/A')}\n"

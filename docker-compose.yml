@@ -8,7 +8,6 @@ services:
     env_file:
       - .env
     environment:
-      LOGFIRE_TOKEN: ${LOGFIRE_TOKEN}
       PORT: 8001
       DB_HOST: postgres_central
       DB_NAME: bot_central
