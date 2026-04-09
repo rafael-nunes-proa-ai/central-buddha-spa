@@ -143,7 +143,8 @@ async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_a
     session_after = get_session(session_id)
     
     if session_after is None:
-        print("🔴 Sessão foi deletada (encerramento). Retornando resposta final.")
+        print("🔴 Sessão foi deletada (encerramento via tool). Retornando resposta final.")
+        print("🚩 Flag finalizar_sessao: TRUE")
         print("=" * 80)
         add_messages(session_id, result.new_messages())
         
@@ -153,7 +154,10 @@ async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_a
         print("✅ BOT CENTRAL - RESPOSTA (ENCERRAMENTO):")
         print(output_text)
         print("=" * 80)
-        return {"response": output_text}
+        return {
+            "response": output_text,
+            "finalizar_sessao": True  # Flag para React Flow encerrar
+        }
     
     # Salva novas mensagens
     add_messages(session_id, result.new_messages())
