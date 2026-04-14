@@ -12,6 +12,7 @@ from agents.deps import MyDeps
 from store.database import update_context, get_session
 from geopy.distance import geodesic
 from utils import registrar_step, registrar_assunto
+from services.google_maps_service import geocode_cep
 import re
 
 
@@ -28,42 +29,21 @@ def _carregar_unidades():
 
 
 def _geocode_por_cep_sync(cep: str) -> tuple:
-    """Geocodifica CEP para sincronização com API (usado apenas para novas unidades)"""
+    """Geocodifica CEP para sincronização com API usando Google Maps"""
     try:
         cep_limpo = re.sub(r'[^0-9]', '', cep)
         if len(cep_limpo) != 8:
             return None, None
         
-        # ViaCEP
-        response = requests.get(f'https://viacep.com.br/ws/{cep_limpo}/json/', timeout=5)
-        if response.status_code != 200 or response.json().get('erro'):
-            return None, None
+        # Usa Google Maps Geocoding API
+        result = geocode_cep(cep_limpo)
         
-        data = response.json()
-        logradouro = data.get('logradouro', '')
-        bairro = data.get('bairro', '')
-        cidade = data.get('localidade', '')
-        uf = data.get('uf', '')
-        
-        if logradouro:
-            endereco = f"{logradouro}, {bairro}, {cidade} - {uf}, Brasil"
-        else:
-            endereco = f"{cidade} - {uf}, Brasil"
-        
-        # Nominatim
-        time.sleep(1)
-        url = "https://nominatim.openstreetmap.org/search"
-        params = {'q': endereco, 'format': 'json', 'limit': 1}
-        headers = {'User-Agent': 'BuddhaSpaBot/1.0'}
-        
-        response = requests.get(url, params=params, headers=headers, timeout=10)
-        if response.status_code == 200:
-            results = response.json()
-            if results and len(results) > 0:
-                return float(results[0]['lat']), float(results[0]['lon'])
+        if result and result.get('lat') and result.get('lng'):
+            return result['lat'], result['lng']
         
         return None, None
-    except:
+    except Exception as e:
+        print(f"   ❌ Erro ao geocodificar CEP {cep}: {e}")
         return None, None
 
 
@@ -106,13 +86,17 @@ def _sincronizar_unidades_com_api():
         # Cria dicionário de unidades locais por ID para comparação
         locais_por_id = {u.get('id'): u for u in unidades_locais if u.get('id')}
         
-        # Compara ignorando latitude/longitude
-        def campos_relevantes(unidade):
-            """Retorna apenas campos relevantes para comparação (sem lat/lon)"""
-            campos = unidade.copy()
-            campos.pop('latitude', None)
-            campos.pop('longitude', None)
-            return campos
+        # Compara APENAS campos de endereço
+        def campos_endereco(unidade):
+            """Retorna apenas campos de endereço para comparação"""
+            return {
+                'cepFranqueada': unidade.get('cepFranqueada', ''),
+                'enderecoFranqueada': unidade.get('enderecoFranqueada', ''),
+                'numeroFranqueada': unidade.get('numeroFranqueada', ''),
+                'bairroFranqueada': unidade.get('bairroFranqueada', ''),
+                'cidadeFranqueada': unidade.get('cidadeFranqueada', ''),
+                'ufFranqueada': unidade.get('ufFranqueada', '')
+            }
         
         precisa_atualizar = False
         unidades_para_geocodificar = []
@@ -122,16 +106,16 @@ def _sincronizar_unidades_com_api():
             unidade_id = unidade_api.get('id')
             
             if unidade_id in locais_por_id:
-                # Unidade existe localmente, compara campos relevantes
+                # Unidade existe localmente, compara APENAS endereço
                 local = locais_por_id[unidade_id]
                 
-                if campos_relevantes(unidade_api) != campos_relevantes(local):
-                    # Endereço ou outros dados mudaram
-                    print(f"   📝 Unidade alterada: {unidade_api.get('nomeFantasiaFranqueada')}")
+                if campos_endereco(unidade_api) != campos_endereco(local):
+                    # ENDEREÇO mudou → precisa geocodificar
+                    print(f"   📝 Endereço alterado: {unidade_api.get('nomeFantasiaFranqueada')}")
                     precisa_atualizar = True
-                    unidades_para_geocodificar.append(unidade_api)
+                    unidades_para_geocodificar.append((unidade_api, unidade_id))
                 else:
-                    # Mantém lat/lon existentes
+                    # Endereço igual → mantém coordenadas antigas
                     if 'latitude' in local:
                         unidade_api['latitude'] = local['latitude']
                     if 'longitude' in local:
@@ -140,7 +124,7 @@ def _sincronizar_unidades_com_api():
                 # Nova unidade
                 print(f"   ➕ Nova unidade: {unidade_api.get('nomeFantasiaFranqueada')}")
                 precisa_atualizar = True
-                unidades_para_geocodificar.append(unidade_api)
+                unidades_para_geocodificar.append((unidade_api, None))
         
         # Verifica se alguma unidade foi removida
         ids_api = {u.get('id') for u in franqueadas_api}
@@ -158,7 +142,7 @@ def _sincronizar_unidades_com_api():
         if unidades_para_geocodificar:
             print(f"🌍 Geocodificando {len(unidades_para_geocodificar)} unidades...")
             
-            for unidade in unidades_para_geocodificar:
+            for unidade, unidade_id in unidades_para_geocodificar:
                 # Tenta geocodificar por CEP
                 cep = unidade.get('cepFranqueada', '')
                 if cep:
@@ -168,7 +152,29 @@ def _sincronizar_unidades_com_api():
                         unidade['longitude'] = lon
                         print(f"   ✓ {unidade.get('nomeFantasiaFranqueada')}")
                     else:
-                        print(f"   ⚠️ Falhou: {unidade.get('nomeFantasiaFranqueada')}")
+                        # Geocodificação falhou → preserva coordenadas antigas (se existirem)
+                        if unidade_id and unidade_id in locais_por_id:
+                            local = locais_por_id[unidade_id]
+                            if 'latitude' in local and 'longitude' in local:
+                                unidade['latitude'] = local['latitude']
+                                unidade['longitude'] = local['longitude']
+                                print(f"   ⚠️ Falhou geocodificação, mantendo coordenadas antigas: {unidade.get('nomeFantasiaFranqueada')}")
+                            else:
+                                print(f"   ⚠️ Falhou: {unidade.get('nomeFantasiaFranqueada')} (sem coordenadas antigas)")
+                        else:
+                            print(f"   ⚠️ Falhou: {unidade.get('nomeFantasiaFranqueada')} (unidade nova sem CEP)")
+                else:
+                    # Sem CEP → preserva coordenadas antigas (se existirem)
+                    if unidade_id and unidade_id in locais_por_id:
+                        local = locais_por_id[unidade_id]
+                        if 'latitude' in local and 'longitude' in local:
+                            unidade['latitude'] = local['latitude']
+                            unidade['longitude'] = local['longitude']
+                            print(f"   ⚠️ Sem CEP, mantendo coordenadas antigas: {unidade.get('nomeFantasiaFranqueada')}")
+                        else:
+                            print(f"   ⚠️ Sem CEP e sem coordenadas: {unidade.get('nomeFantasiaFranqueada')}")
+                    else:
+                        print(f"   ⚠️ Unidade nova sem CEP: {unidade.get('nomeFantasiaFranqueada')}")
         
         # Salva nova versão
         print(f"💾 Salvando unidades.json...")
@@ -221,129 +227,41 @@ async def buscar_endereco_por_cep(
         print("❌ CEP inválido: formato incorreto")
         return "INVALIDO|CEP deve ter 8 dígitos"
     
-    # Consulta ViaCEP
-    try:
-        url = f"https://viacep.com.br/ws/{cep_limpo}/json/"
-        response = requests.get(url, timeout=5)
-        response.raise_for_status()
-        
-        data = response.json()
-        
-        # Verifica se CEP existe
-        if data.get('erro'):
-            print("❌ CEP não encontrado")
-            return "INVALIDO|CEP não encontrado"
-        
-        cidade = data.get('localidade', '')
-        estado = data.get('uf', '')
-        bairro = data.get('bairro', '')
-        
-        # Armazena no contexto
-        update_context(conversation_id, {
-            'cep_informado': cep_limpo,
-            'cidade_informada': cidade,
-            'estado_informado': estado,
-            'bairro_informado': bairro
-        })
-        
-        print(f"✅ CEP válido:")
-        print(f"   Cidade: {cidade}")
-        print(f"   Estado: {estado}")
-        print(f"   Bairro: {bairro}")
+    # Consulta Google Maps Geocoding API
+    result = geocode_cep(cep_limpo)
+    
+    if not result:
+        print("❌ CEP não encontrado")
         print("=" * 80)
-        
-        return f"VALIDO|{cidade}|{estado}|{bairro}"
+        return "INVALIDO|CEP não encontrado"
     
-    except Exception as e:
-        print(f"❌ Erro ao consultar ViaCEP: {e}")
-        print("=" * 80)
-        return "INVALIDO|Erro ao consultar CEP"
-
-
-@Tool
-async def buscar_coordenadas_por_endereco(
-    ctx: RunContext[MyDeps]
-) -> str:
-    """
-    Busca coordenadas (lat/lon) usando Nominatim (OpenStreetMap).
-    Usa cidade, estado e bairro do contexto.
+    cidade = result['cidade']
+    estado = result['estado']
+    bairro = result['bairro']
     
-    Returns:
-        str: "ENCONTRADO|latitude|longitude" ou "NAO_ENCONTRADO"
-    """
-    conversation_id = ctx.deps.session_id
+    # Armazena no contexto (incluindo coordenadas)
+    update_context(conversation_id, {
+        'cep_informado': cep_limpo,
+        'cidade_informada': cidade,
+        'estado_informado': estado,
+        'bairro_informado': bairro,
+        'latitude_usuario': result['lat'],
+        'longitude_usuario': result['lng']
+    })
     
-    # Busca dados do contexto
-    session = get_session(conversation_id)
-    context = session[2] if session else {}
-    
-    if isinstance(context, str):
-        try:
-            context = json.loads(context) if context else {}
-        except:
-            context = {}
-    
-    cidade = context.get('cidade_informada', '')
-    estado = context.get('estado_informado', '')
-    bairro = context.get('bairro_informado', '')
-    
-    print("=" * 80)
-    print("🌍 TOOL: buscar_coordenadas_por_endereco")
-    print(f"Cidade: {cidade}")
-    print(f"Estado: {estado}")
-    print(f"Bairro: {bairro}")
+    print(f"✅ CEP válido:")
+    print(f"   Cidade: {cidade}")
+    print(f"   Estado: {estado}")
+    print(f"   Bairro: {bairro}")
+    print(f"   Coordenadas: {result['lat']}, {result['lng']}")
     print("=" * 80)
     
-    if not cidade or not estado:
-        print("❌ Dados insuficientes")
-        return "NAO_ENCONTRADO"
-    
-    # Monta query para Nominatim
-    if bairro:
-        query = f"{bairro}, {cidade}, {estado}, Brasil"
-    else:
-        query = f"{cidade}, {estado}, Brasil"
-    
-    try:
-        url = "https://nominatim.openstreetmap.org/search"
-        params = {
-            'q': query,
-            'format': 'json',
-            'limit': 1
-        }
-        headers = {
-            'User-Agent': 'BuddhaSpaBot/1.0'
-        }
-        
-        response = requests.get(url, params=params, headers=headers, timeout=10)
-        response.raise_for_status()
-        
-        data = response.json()
-        
-        if not data:
-            print("❌ Coordenadas não encontradas")
-            return "NAO_ENCONTRADO"
-        
-        latitude = float(data[0]['lat'])
-        longitude = float(data[0]['lon'])
-        
-        # Armazena no contexto
-        update_context(conversation_id, {
-            'latitude_usuario': latitude,
-            'longitude_usuario': longitude
-        })
-        
-        print(f"✅ Coordenadas encontradas:")
-        print(f"   Latitude: {latitude}")
-        print(f"   Longitude: {longitude}")
-        print("=" * 80)
-        
-        return f"ENCONTRADO|{latitude}|{longitude}"
-    
-    except Exception as e:
-        print(f"❌ Erro ao buscar coordenadas: {e}")
-        print("=" * 80)
-        return "NAO_ENCONTRADO"
+    return f"VALIDO|{cidade}|{estado}|{bairro}"
+
+
+# ❌ REMOVIDA: buscar_coordenadas_por_endereco
+# Google Maps Geocoding API já retorna coordenadas junto com o CEP
+# Não é mais necessária uma tool separada
 
 
 @Tool

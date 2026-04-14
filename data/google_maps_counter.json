@@ -1,0 +1,12 @@
+{
+  "geocoding": {
+    "total": 100,
+    "mes_atual": 100,
+    "ultimo_reset": "2026-04-01"
+  },
+  "distance_matrix": {
+    "total": 0,
+    "mes_atual": 0,
+    "ultimo_reset": "2026-04-01"
+  }
+}
