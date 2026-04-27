@@ -5,6 +5,7 @@ Aplicação independente do projeto principal
 
 import json
 import os
+import re
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,7 +13,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from typing import Union, Any
 
-from agents.agent_central import central_agent
+from agents.agent_central import central_agent, duvidas_agent
 from agents.deps import MyDeps
 from security.auth import verificar_api_key
 from store.database import (
@@ -27,6 +28,21 @@ load_dotenv()
 
 # Lock para evitar processamento duplicado
 processing_locks = {}
+
+
+def format_whatsapp(text: str) -> str:
+    """
+    Formata texto para WhatsApp removendo formatação incorreta.
+    - Substitui **texto** por *texto* (asterisco duplo para simples)
+    - Remove traços separadores ---
+    """
+    # Substitui **texto** por *texto*
+    text = re.sub(r"\*\*(.*?)\*\*", r"*\1*", text)
+    
+    # Remove linhas com apenas traços (separadores)
+    text = re.sub(r"^-{3,}$", "", text, flags=re.MULTILINE)
+    
+    return text.strip()
 
 app = FastAPI(title="Bot Central - Buddha Spa")
 
@@ -79,38 +95,18 @@ async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_a
         # Comando manual de encerramento - Detecta palavras e deleta sessão
         if message and isinstance(message, str) and message.lower() in ["sair", "encerrar"]:
             print("=" * 80)
-            print("🔴 FINALIZAR_SESSAO - PALAVRA DE ENCERRAMENTO DETECTADA")
-            print(f"Conversation ID: {conversation_id}")
-            print(f"Session ID (com prefixo): {session_id}")
-            print(f"Mensagem recebida: {message}")
+            print("🔴 ENCERRAMENTO MANUAL - Palavra detectada")
+            print(f"Session ID: {session_id}")
             print("=" * 80)
             
-            # Verifica se sessão existe antes de deletar
-            session_antes = get_session(session_id)
-            if session_antes:
-                print(f"📊 Sessão encontrada no banco:")
-                print(f"   - Agente atual: {session_antes[1]}")
-                print(f"   - Última atualização: {session_antes[3]}")
-            else:
-                print("⚠️  Sessão não encontrada no banco (pode já ter sido deletada)")
-            
-            print("🗑️  Deletando sessão do banco de dados...")
             delete_session(session_id)
             
-            # Verifica se sessão foi realmente deletada
-            session_depois = get_session(session_id)
-            if session_depois is None:
-                print("✅ CONFIRMADO: Sessão deletada com sucesso do banco de dados")
-            else:
-                print("❌ ERRO: Sessão ainda existe no banco após delete_session()")
-                print(f"   Dados da sessão: {session_depois}")
-            
+            print("✅ Sessão deletada")
             print("🚩 Flag finalizar_sessao: TRUE")
-            print("📤 Retornando resposta de despedida para React Flow")
             print("=" * 80)
             return {
                 "response": "Obrigado por entrar em contato com a Buddha Spa! 😊\n\nVolte sempre que precisar! 🙏",
-                "finalizar_sessao": True  # Flag para React Flow encerrar
+                "finalizar_sessao": True
             }
         
         print("=" * 80)
@@ -137,12 +133,23 @@ async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_a
         
         # Cria deps com contexto
         context.setdefault("session_id", session_id)
+        context.setdefault("agente_atual", "central_agent")  # Default
         deps = MyDeps(**context)
         
-        print(f"🤖 Executando agent com {len(history)} mensagens no histórico")
+        # Determina qual agente usar
+        agente_atual = context.get("agente_atual", "central_agent")
         
-        # Executa central_agent
-        result = await central_agent.run(
+        print(f"🤖 Current Agent: {agente_atual}")
+        print(f"📊 Histórico: {len(history)} mensagens")
+        
+        # Seleciona o agente correto
+        if agente_atual == "duvidas_agent":
+            agent = duvidas_agent
+        else:
+            agent = central_agent
+        
+        # Executa o agente selecionado
+        result = await agent.run(
             message,
             message_history=history,
             deps=deps
@@ -161,6 +168,7 @@ async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_a
             
             output_text = result.data if hasattr(result, 'data') and result.data else result.output
             output_text = str(output_text)
+            output_text = format_whatsapp(output_text)
             
             print("✅ BOT CENTRAL - RESPOSTA (ENCERRAMENTO):")
             print(output_text)
@@ -207,6 +215,8 @@ async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_a
             "contexto_cancelamento": deps.contexto_cancelamento,
             "steps": deps.steps,
             "assuntos": deps.assuntos,
+            "opcoes_faq": context_from_db.get('opcoes_faq') or deps.opcoes_faq,  # FAQ
+            "agente_atual": context_from_db.get('agente_atual') or deps.agente_atual,  # Roteamento
         }
         update_context(session_id, context_updated)
         
@@ -214,8 +224,10 @@ async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_a
         try:
             output_text = result.data if hasattr(result, 'data') and result.data else result.output
             output_text = str(output_text)
+            output_text = format_whatsapp(output_text)
         except:
             output_text = str(result.output)
+            output_text = format_whatsapp(output_text)
         
         print("=" * 80)
         print("✅ BOT CENTRAL - RESPOSTA:")

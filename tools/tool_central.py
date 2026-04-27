@@ -900,10 +900,13 @@ async def obter_info_unidade(
 
 
 @Tool
-async def encerrar_atendimento(ctx: RunContext[MyDeps]) -> str:
+async def encerrar_atendimento(ctx: RunContext[MyDeps], motivo: str = "usuario_nao_precisa") -> str:
     """
     Encerra o atendimento e deleta a sessão de conversa.
     Deve ser chamada quando o usuário não quer mais ajuda ou solicita encerramento.
+    
+    Args:
+        motivo: Motivo do encerramento (usuario_nao_precisa, duvidas_esclarecidas, erro_critico)
     
     Returns:
         str: Mensagem de despedida
@@ -915,6 +918,7 @@ async def encerrar_atendimento(ctx: RunContext[MyDeps]) -> str:
     print("=" * 80)
     print("🔴 ENCERRANDO ATENDIMENTO")
     print(f"Session ID: {conversation_id}")
+    print(f"Motivo: {motivo}")
     print("=" * 80)
     
     try:
@@ -926,3 +930,310 @@ async def encerrar_atendimento(ctx: RunContext[MyDeps]) -> str:
         print(f"❌ Erro ao deletar sessão: {e}")
         print("=" * 80)
         return "Obrigado por entrar em contato com a Buddha Spa! 😊\n\nVolte sempre que precisar! 🙏"
+
+
+# ============================================================================
+# TOOLS DE FAQ - DÚVIDAS GERAIS
+# ============================================================================
+
+def _carregar_faq():
+    """Carrega FAQ do arquivo JSON"""
+    try:
+        with open('FAQ/faq.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"❌ Erro ao carregar FAQ: {e}")
+        return {"categories": []}
+
+
+def _normalizar_texto(texto: str) -> str:
+    """Normaliza texto para busca (remove acentos, lowercase)"""
+    import unicodedata
+    texto = texto.lower().strip()
+    texto = unicodedata.normalize('NFD', texto)
+    texto = ''.join(c for c in texto if unicodedata.category(c) != 'Mn')
+    return texto
+
+
+def _calcular_similaridade(texto1: str, texto2: str) -> float:
+    """Calcula similaridade entre dois textos usando SequenceMatcher"""
+    from difflib import SequenceMatcher
+    return SequenceMatcher(None, texto1, texto2).ratio()
+
+
+@Tool
+async def buscar_resposta_faq(ctx: RunContext[MyDeps], pergunta_usuario: str) -> str:
+    """
+    Busca resposta no FAQ baseado na pergunta do usuário.
+    Retorna a resposta mais relevante ou múltiplas opções se houver empate.
+    
+    Args:
+        pergunta_usuario: Pergunta do usuário
+    
+    Returns:
+        str: Resposta formatada ou lista de opções
+    """
+    conversation_id = ctx.deps.session_id
+    
+    print("=" * 80)
+    print("🔍 BUSCAR RESPOSTA FAQ")
+    print(f"Pergunta: {pergunta_usuario}")
+    print("=" * 80)
+    
+    faq_data = _carregar_faq()
+    pergunta_norm = _normalizar_texto(pergunta_usuario)
+    
+    # Busca em todas as categorias
+    matches = []
+    
+    for categoria in faq_data.get('categories', []):
+        for faq in categoria.get('faqs', []):
+            question = faq.get('question', '')
+            answer = faq.get('answer', '')
+            
+            # Calcula similaridade
+            similaridade = _calcular_similaridade(pergunta_norm, _normalizar_texto(question))
+            
+            # Também verifica se palavras-chave da pergunta estão na resposta
+            palavras_pergunta = set(pergunta_norm.split())
+            palavras_resposta = set(_normalizar_texto(question + " " + answer).split())
+            palavras_comuns = len(palavras_pergunta & palavras_resposta)
+            
+            # Score combinado
+            score = similaridade * 0.7 + (palavras_comuns / max(len(palavras_pergunta), 1)) * 0.3
+            
+            if score >= 0.3:  # Threshold mínimo
+                matches.append({
+                    'question': question,
+                    'answer': answer,
+                    'score': score,
+                    'contacts': faq.get('contacts', {})
+                })
+    
+    # Ordena por score
+    matches.sort(key=lambda x: x['score'], reverse=True)
+    
+    print(f"📊 Encontrados {len(matches)} matches")
+    for i, m in enumerate(matches[:3]):
+        print(f"   {i+1}. Score: {m['score']:.2f} - {m['question'][:60]}...")
+    
+    # Decisão de retorno
+    if not matches:
+        print("❌ Nenhuma resposta encontrada")
+        print("=" * 80)
+        return "❌ Não encontrei uma resposta específica para sua pergunta.\n\nPoderia reformular ou me contar mais detalhes? 😊"
+    
+    # Se tem apenas 1 match ou o primeiro é muito melhor que os outros
+    if len(matches) == 1 or (len(matches) > 1 and matches[0]['score'] > matches[1]['score'] * 1.3):
+        melhor = matches[0]
+        print(f"✅ Resposta única encontrada (score: {melhor['score']:.2f})")
+        print("=" * 80)
+        
+        # Formata resposta
+        resposta = melhor['answer']
+        
+        # Adiciona contatos se houver
+        contacts = melhor.get('contacts', {})
+        if contacts:
+            if contacts.get('email'):
+                resposta += f"\n\n📧 E-mail: {contacts['email']}"
+            if contacts.get('links'):
+                for link in contacts['links'][:2]:  # Máximo 2 links
+                    resposta += f"\n🔗 {link}"
+        
+        return f"✅ {resposta}"
+    
+    # Se tem múltiplos matches similares, mostra opções
+    top_matches = matches[:min(3, len(matches))]
+    
+    # Armazena opções no contexto
+    ctx.deps.opcoes_faq = top_matches
+    update_context(conversation_id, {"opcoes_faq": top_matches})
+    
+    print(f"🔍 Múltiplas opções encontradas ({len(top_matches)})")
+    print("=" * 80)
+    
+    # Monta lista de opções
+    opcoes_texto = "🔍 Encontrei algumas opções relacionadas à sua pergunta:\n\n"
+    for i, match in enumerate(top_matches, 1):
+        opcoes_texto += f"{i}. {match['question']}\n"
+    
+    opcoes_texto += "\nQual delas responde melhor sua dúvida? Digite o número. 😊"
+    
+    return opcoes_texto
+
+
+@Tool
+async def mostrar_resposta_faq_escolhida(ctx: RunContext[MyDeps], numero_opcao: int) -> str:
+    """
+    Mostra a resposta da opção escolhida pelo usuário.
+    
+    Args:
+        numero_opcao: Número da opção escolhida (1, 2, 3...)
+    
+    Returns:
+        str: Resposta da opção escolhida
+    """
+    conversation_id = ctx.deps.session_id
+    
+    print("=" * 80)
+    print(f"📌 MOSTRAR RESPOSTA FAQ ESCOLHIDA - Opção {numero_opcao}")
+    print("=" * 80)
+    
+    # Busca opções no contexto
+    opcoes = ctx.deps.opcoes_faq
+    
+    if not opcoes:
+        print("❌ Nenhuma opção disponível no contexto")
+        print("=" * 80)
+        return "❌ Não encontrei as opções. Poderia fazer sua pergunta novamente? 😊"
+    
+    # Valida número
+    if numero_opcao < 1 or numero_opcao > len(opcoes):
+        print(f"❌ Número inválido: {numero_opcao} (opções: 1-{len(opcoes)})")
+        print("=" * 80)
+        return f"❌ Por favor, escolha um número entre 1 e {len(opcoes)}. 😊"
+    
+    # Pega a opção escolhida
+    escolhida = opcoes[numero_opcao - 1]
+    
+    print(f"✅ Opção escolhida: {escolhida['question']}")
+    print("=" * 80)
+    
+    # Formata resposta
+    resposta = escolhida['answer']
+    
+    # Adiciona contatos se houver
+    contacts = escolhida.get('contacts', {})
+    if contacts:
+        if contacts.get('email'):
+            resposta += f"\n\n📧 E-mail: {contacts['email']}"
+        if contacts.get('links'):
+            for link in contacts['links'][:2]:
+                resposta += f"\n🔗 {link}"
+    
+    # Limpa opções do contexto
+    ctx.deps.opcoes_faq = None
+    update_context(conversation_id, {"opcoes_faq": None})
+    
+    return f"✅ {resposta}"
+
+
+@Tool
+async def ir_para_duvidas_gerais(ctx: RunContext[MyDeps]) -> str:
+    """
+    Marca transição do central_agent para duvidas_agent.
+    Usado quando usuário faz pergunta geral que não é sobre localização/contato.
+    
+    Returns:
+        str: Confirmação da transição
+    """
+    conversation_id = ctx.deps.session_id
+    
+    print("=" * 80)
+    print("🔄 TRANSIÇÃO: central_agent → duvidas_agent")
+    print(f"Session ID: {conversation_id}")
+    print("=" * 80)
+    
+    # Atualiza agente atual
+    ctx.deps.agente_atual = "duvidas_agent"
+    update_context(conversation_id, {
+        "agente_atual": "duvidas_agent"
+    })
+    
+    print("✅ Contexto atualizado para duvidas_agent")
+    print("=" * 80)
+    
+    return "TRANSICAO_DUVIDAS"
+
+
+@Tool
+async def ir_para_agendamento_de_duvidas(ctx: RunContext[MyDeps]) -> str:
+    """
+    Marca transição para o fluxo de agendamento.
+    Atualiza o agente atual para central_agent.
+    
+    Returns:
+        str: Confirmação da transição
+    """
+    conversation_id = ctx.deps.session_id
+    
+    print("=" * 80)
+    print("🔄 TRANSIÇÃO: duvidas_agent → central_agent (AGENDAMENTO)")
+    print(f"Session ID: {conversation_id}")
+    print("=" * 80)
+    
+    # Atualiza agente atual
+    ctx.deps.agente_atual = "central_agent"
+    update_context(conversation_id, {
+        "agente_atual": "central_agent",
+        "vindo_de_duvidas": True,
+        "intencao": "agendamento"
+    })
+    
+    print("✅ Contexto atualizado para agendamento")
+    print("=" * 80)
+    
+    return "TRANSICAO_AGENDAMENTO"
+
+
+@Tool
+async def ir_para_cancelamento_de_duvidas(ctx: RunContext[MyDeps]) -> str:
+    """
+    Marca transição para o fluxo de cancelamento.
+    Atualiza o agente atual para central_agent.
+    
+    Returns:
+        str: Confirmação da transição
+    """
+    conversation_id = ctx.deps.session_id
+    
+    print("=" * 80)
+    print("🔄 TRANSIÇÃO: duvidas_agent → central_agent (CANCELAMENTO)")
+    print(f"Session ID: {conversation_id}")
+    print("=" * 80)
+    
+    # Atualiza agente atual
+    ctx.deps.agente_atual = "central_agent"
+    update_context(conversation_id, {
+        "agente_atual": "central_agent",
+        "vindo_de_duvidas": True,
+        "intencao": "cancelamento",
+        "contexto_cancelamento": True
+    })
+    
+    print("✅ Contexto atualizado para cancelamento")
+    print("=" * 80)
+    
+    return "TRANSICAO_CANCELAMENTO"
+
+
+@Tool
+async def ir_para_reagendamento_de_duvidas(ctx: RunContext[MyDeps]) -> str:
+    """
+    Marca transição para o fluxo de reagendamento.
+    Atualiza o agente atual para central_agent.
+    
+    Returns:
+        str: Confirmação da transição
+    """
+    conversation_id = ctx.deps.session_id
+    
+    print("=" * 80)
+    print("🔄 TRANSIÇÃO: duvidas_agent → central_agent (REAGENDAMENTO)")
+    print(f"Session ID: {conversation_id}")
+    print("=" * 80)
+    
+    # Atualiza agente atual
+    ctx.deps.agente_atual = "central_agent"
+    update_context(conversation_id, {
+        "agente_atual": "central_agent",
+        "vindo_de_duvidas": True,
+        "intencao": "reagendamento",
+        "quer_reagendar": True
+    })
+    
+    print("✅ Contexto atualizado para reagendamento")
+    print("=" * 80)
+    
+    return "TRANSICAO_REAGENDAMENTO"

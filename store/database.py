@@ -54,11 +54,8 @@ def _minimize_message(msg_dict: dict) -> dict:
     return minimized
 
 def add_messages(session_id: str, new_msgs: list):
-    print(f" [add_messages] Tentando salvar {len(new_msgs)} mensagens para session_id={session_id}")
-    
     try:
         conn = get_connection()
-        print(f" [add_messages] Conexão com banco estabelecida")
         cur = conn.cursor()
 
         for i, msg in enumerate(new_msgs):
@@ -67,20 +64,16 @@ def add_messages(session_id: str, new_msgs: list):
             # Remove instructions antes de salvar no banco
             minimized = _minimize_message(msg_json)
             
-            print(f" [add_messages] Salvando mensagem {i+1}/{len(new_msgs)}: {minimized}")
-            
             cur.execute(
                 "INSERT INTO messages (session_id, message) VALUES (%s, %s::jsonb)",
                 (session_id, json.dumps(minimized))
             )
-            print(f" [add_messages] Mensagem {i+1} inserida com sucesso")
 
         conn.commit()
-        print(f" [add_messages] COMMIT realizado! {len(new_msgs)} mensagens salvas.")
         cur.close()
         conn.close()
     except Exception as e:
-        print(f" [add_messages] ERRO ao salvar mensagens: {e}")
+        print(f"❌ ERRO ao salvar mensagens: {e}")
         import traceback
         traceback.print_exc()
         raise

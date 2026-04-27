@@ -36,3 +36,7 @@ class MyDeps:
     
     # CONTROLE DE FINALIZAÇÃO
     finalizar_sessao: Optional[bool] = None  # Flag para React Flow encerrar conversa
+    
+    # DÚVIDAS GERAIS
+    opcoes_faq: Optional[list] = None  # Opções de FAQ quando há múltiplas respostas
+    agente_atual: Optional[str] = None  # Nome do agente atual (central_agent ou duvidas_agent)
