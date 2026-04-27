@@ -157,6 +157,57 @@ async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_a
         
         print(f"📝 Novas mensagens geradas: {len(result.new_messages())}")
         
+        # Verifica se houve transição de agente
+        session_after_run = get_session(session_id)
+        if session_after_run:
+            context_after = session_after_run[2]
+            if isinstance(context_after, str):
+                try:
+                    context_after = json.loads(context_after) if context_after else {}
+                except:
+                    context_after = {}
+            
+            novo_agente = context_after.get("agente_atual", "central_agent")
+            
+            # Se mudou de agente (transição detectada)
+            if novo_agente != agente_atual:
+                # Verifica se a resposta é apenas o emoji de transição
+                try:
+                    output_temp = result.data if hasattr(result, 'data') and result.data else result.output
+                    output_temp = str(output_temp).strip()
+                except:
+                    output_temp = ""
+                
+                # Se for transição silenciosa (emoji 🔄), reprocessa
+                if output_temp == "🔄":
+                    print("=" * 80)
+                    print(f"🔄 TRANSIÇÃO SILENCIOSA DETECTADA: {agente_atual} → {novo_agente}")
+                    print("🔄 Reprocessando mensagem com novo agente...")
+                    print("=" * 80)
+                    
+                    # NÃO salva as mensagens da transição (para não poluir histórico)
+                    # Apenas recarrega histórico atual
+                    history = get_messages(session_id)
+                    
+                    # Seleciona novo agente
+                    if novo_agente == "duvidas_agent":
+                        agent = duvidas_agent
+                    else:
+                        agent = central_agent
+                    
+                    # Recarrega deps com contexto atualizado
+                    context_after.setdefault("session_id", session_id)
+                    deps = MyDeps(**context_after)
+                    
+                    # Reprocessa a MESMA mensagem com o novo agente
+                    result = await agent.run(
+                        message,
+                        message_history=history,
+                        deps=deps
+                    )
+                    
+                    print(f"📝 Novas mensagens após reprocessamento: {len(result.new_messages())}")
+        
         # Verifica se sessão foi deletada (encerramento via tool)
         session_after = get_session(session_id)
         
