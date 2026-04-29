@@ -13,6 +13,14 @@ import threading
 
 load_dotenv()
 
+# Importa serviço de e-mail para alertas
+try:
+    from services.email_service import enviar_alerta_50_porcento, enviar_alerta_100_porcento
+    EMAIL_ALERTS_ENABLED = True
+except ImportError:
+    print("⚠️ Serviço de e-mail não disponível. Alertas serão apenas em logs.")
+    EMAIL_ALERTS_ENABLED = False
+
 # Cliente Google Maps
 gmaps = googlemaps.Client(key=os.getenv('GOOGLE_MAPS_API_KEY'))
 
@@ -96,6 +104,13 @@ def _incrementar_contador(tipo: str):
             print(f"💰 Após 10.000: $5 por 1.000 requisições (até 100k)")
             print(f"💰 Após 100.000: $4 por 1.000 requisições (até 500k)")
             print("=" * 80)
+            
+            # Envia alerta por e-mail
+            if EMAIL_ALERTS_ENABLED:
+                try:
+                    enviar_alerta_50_porcento(mes_atual, total)
+                except Exception as e:
+                    print(f"❌ Erro ao enviar e-mail de alerta: {e}")
         
         if tipo == "geocoding" and mes_atual == 10000:
             print("=" * 80)
@@ -104,6 +119,13 @@ def _incrementar_contador(tipo: str):
             print(f"🚫 Você ultrapassou as 10.000 requisições gratuitas!")
             print(f"💰 Agora você está sendo cobrado: $5 por 1.000 requisições")
             print("=" * 80)
+            
+            # Envia alerta CRÍTICO por e-mail
+            if EMAIL_ALERTS_ENABLED:
+                try:
+                    enviar_alerta_100_porcento(mes_atual, total)
+                except Exception as e:
+                    print(f"❌ Erro ao enviar e-mail de alerta: {e}")
         
         if tipo == "distance_matrix" and mes_atual == LIMITE_ALERTA_DISTANCE:
             print("=" * 80)

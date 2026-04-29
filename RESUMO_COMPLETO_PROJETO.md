@@ -245,6 +245,15 @@ LIMITE_ALERTA_DISTANCE = 5000   # Alerta de alto uso
 - Logs detalhados de uso
 - Thread-safe (lock)
 
+**Sistema de Alertas por E-mail (NOVO):**
+- ✅ **AWS SES** para envio de e-mails
+- ✅ Alerta automático em **5.000 requisições** (50% da cota)
+- ✅ Alerta crítico em **10.000 requisições** (100% da cota)
+- ✅ E-mails HTML formatados com estatísticas
+- ✅ Múltiplos destinatários configuráveis
+- 📧 Arquivo: `services/email_service.py`
+- 📄 Documentação: `docs/CONFIGURAR_ALERTAS_EMAIL.md`
+
 **Funções:**
 ```python
 geocode_cep(cep)                     # CEP → coordenadas + endereço
@@ -341,6 +350,14 @@ API_KEY=chave_secreta_api
 AWS_ACCESS_KEY_ID=AKIA...
 AWS_SECRET_ACCESS_KEY=...
 AWS_REGION=us-east-1
+
+# AWS SES - Alertas por E-mail
+AWS_SES_REGION=us-east-1
+AWS_SES_ACCESS_KEY=AKIARPR3UDY7H33SUTUK
+AWS_SES_SECRET_KEY=BAsfcjvKqcVxKzxLyld0ImOPoa8se8C2u4Uc9DHOCT2l
+EMAIL_FROM=naoresponda@proatecnologia.com.br
+ALERT_EMAIL_1=responsavel1@exemplo.com.br
+ALERT_EMAIL_2=responsavel2@exemplo.com.br
 
 # Servidor
 PORT=8001
@@ -534,6 +551,7 @@ BOT: [encerrar_atendimento("usuario_nao_precisa")]
 - `docs/MONITORAMENTO_GOOGLE_MAPS.md` - Guia de monitoramento da API
 - `docs/CONFIGURAR_ALERTAS_GOOGLE_CLOUD.md` - Configuração de alertas
 - `docs/GUIA_RAPIDO_MONITORAMENTO.md` - Guia rápido
+- `docs/CONFIGURAR_ALERTAS_EMAIL.md` - **Sistema de alertas por e-mail (NOVO)**
 
 ### **Scripts Auxiliares**
 - `geocode_unidades.py` - Geocodifica unidades em massa
