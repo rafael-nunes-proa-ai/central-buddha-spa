@@ -7,10 +7,18 @@ import os
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Fuso horário de São Paulo (UTC-3)
+TZ_SAO_PAULO = timezone(timedelta(hours=-3))
+
+
+def _agora_br() -> str:
+    """Retorna data/hora atual no fuso de São Paulo formatada"""
+    return datetime.now(TZ_SAO_PAULO).strftime('%d/%m/%Y %H:%M:%S')
 
 # Configurações AWS SES via SMTP
 SMTP_HOST = os.getenv('SMTP_HOST', 'email-smtp.us-east-1.amazonaws.com')
@@ -21,8 +29,7 @@ EMAIL_FROM = os.getenv('EMAIL_FROM', 'naoresponda@proatecnologia.com.br')
 
 # E-mails dos responsáveis
 ALERT_EMAILS = [
-    os.getenv('ALERT_EMAIL_1'),
-    os.getenv('ALERT_EMAIL_2')
+    os.getenv('ALERT_EMAIL_1')
 ]
 
 # Verifica se SMTP está configurado
@@ -85,7 +92,7 @@ def enviar_alerta_50_porcento(requisicoes_mes: int, total: int):
                         <li><strong>Total histórico:</strong> {total:,}</li>
                         <li><strong>Cota gratuita mensal:</strong> 10.000 requisições</li>
                         <li><strong>Percentual usado:</strong> {(requisicoes_mes/10000)*100:.1f}%</li>
-                        <li><strong>Data/Hora:</strong> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</li>
+                        <li><strong>Data/Hora:</strong> {_agora_br()}</li>
                     </ul>
                 </div>
                 
@@ -135,7 +142,7 @@ Requisições este mês: {requisicoes_mes:,}
 Total histórico: {total:,}
 Cota gratuita mensal: 10.000 requisições
 Percentual usado: {(requisicoes_mes/10000)*100:.1f}%
-Data/Hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
+Data/Hora: {_agora_br()}
 
 💰 INFORMAÇÕES DE CUSTO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -216,7 +223,7 @@ def enviar_alerta_100_porcento(requisicoes_mes: int, total: int):
                         <li><strong>Requisições este mês:</strong> {requisicoes_mes:,}</li>
                         <li><strong>Total histórico:</strong> {total:,}</li>
                         <li><strong>Requisições excedentes:</strong> {requisicoes_mes - 10000:,}</li>
-                        <li><strong>Data/Hora:</strong> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</li>
+                        <li><strong>Data/Hora:</strong> {_agora_br()}</li>
                     </ul>
                 </div>
                 
@@ -268,7 +275,7 @@ A partir de agora, você está sendo cobrado por cada requisição adicional.
 Requisições este mês: {requisicoes_mes:,}
 Total histórico: {total:,}
 Requisições excedentes: {requisicoes_mes - 10000:,}
-Data/Hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
+Data/Hora: {_agora_br()}
 
 💰 CUSTO ESTIMADO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -370,6 +377,7 @@ def testar_envio_email():
         print("  - EMAIL_FROM")
         print("  - ALERT_EMAIL_1")
         print("  - ALERT_EMAIL_2")
+        print("  - ALERT_EMAIL_3 (opcional)")
         return False
     
     destinatarios = [email for email in ALERT_EMAILS if email]
@@ -385,7 +393,7 @@ def testar_envio_email():
         <h2>✅ Teste de E-mail</h2>
         <p>Este é um e-mail de teste do sistema de alertas do Buddha Spa Bot Central.</p>
         <p>Se você recebeu este e-mail, o sistema está funcionando corretamente!</p>
-        <p><strong>Data/Hora:</strong> """ + datetime.now().strftime('%d/%m/%Y %H:%M:%S') + """</p>
+        <p><strong>Data/Hora:</strong> """ + _agora_br() + """</p>
     </body>
     </html>
     """
@@ -395,7 +403,7 @@ def testar_envio_email():
 Este é um e-mail de teste do sistema de alertas do Buddha Spa Bot Central.
 Se você recebeu este e-mail, o sistema está funcionando corretamente!
 
-Data/Hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
+Data/Hora: {_agora_br()}
     """
     
     _enviar_email(destinatarios, assunto, corpo_html, corpo_texto)
