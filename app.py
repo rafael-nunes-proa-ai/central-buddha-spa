@@ -7,7 +7,7 @@ import json
 import os
 import re
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -71,7 +71,7 @@ async def read_root():
 
 
 @app.post("/chat-central")
-async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_api_key)):
+async def post_chat_central(req: ChatRequest, background_tasks: BackgroundTasks, api_key: str = Depends(verificar_api_key)):
     """
     Endpoint do Bot Central - Informações de Contato e Geolocalização
     Bot independente para fornecer contatos das unidades e encontrar unidade mais próxima
@@ -130,6 +130,20 @@ async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_a
                 context = json.loads(context) if context else {}
             except:
                 context = {}
+        
+        # PROTEÇÃO: Se transbordo já foi ativado, retorna imediatamente SEM processar
+        if context.get('transbordo') == True:
+            print("=" * 80)
+            print("⚠️  TRANSBORDO JÁ ATIVADO - Retornando sem processar")
+            print("🚩 Flag transbordo: TRUE")
+            print("🗑️  Sessão será deletada após retorno")
+            print("=" * 80)
+            # Deleta sessão em background APÓS retornar
+            background_tasks.add_task(delete_session, session_id)
+            return {
+                "response": "",
+                "transbordo": True
+            }
         
         # Cria deps com contexto
         context.setdefault("session_id", session_id)
@@ -208,6 +222,22 @@ async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_a
                     
                     print(f"📝 Novas mensagens após reprocessamento: {len(result.new_messages())}")
         
+        # VERIFICA TRANSBORDO PRIMEIRO (antes de verificar sessão deletada)
+        if deps.transbordo:
+            print("=" * 80)
+            print("🔴 TRANSBORDO ATIVADO")
+            print("🚩 Flag transbordo: TRUE")
+            print("�️  Sessão será deletada após retorno")
+            print("=" * 80)
+            
+            # Deleta sessão em background APÓS retornar
+            background_tasks.add_task(delete_session, session_id)
+            
+            return {
+                "response": "",
+                "transbordo": True
+            }
+        
         # Verifica se sessão foi deletada (encerramento via tool)
         session_after = get_session(session_id)
         
@@ -268,6 +298,7 @@ async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_a
             "assuntos": deps.assuntos,
             "opcoes_faq": context_from_db.get('opcoes_faq') or deps.opcoes_faq,  # FAQ
             "agente_atual": context_from_db.get('agente_atual') or deps.agente_atual,  # Roteamento
+            "transbordo": deps.transbordo,  # Transbordo para atendimento humano
         }
         update_context(session_id, context_updated)
         
@@ -285,7 +316,13 @@ async def post_chat_central(req: ChatRequest, api_key: str = Depends(verificar_a
         print(output_text)
         print("=" * 80)
         
-        return {"response": output_text}
+        # Monta resposta com transbordo se ativado
+        response_data = {"response": output_text}
+        if deps.transbordo:
+            response_data["transbordo"] = True
+            print("🔄 TRANSBORDO ATIVADO - Transferindo para atendimento humano")
+        
+        return response_data
     
     finally:
         # 🔓 Libera o lock

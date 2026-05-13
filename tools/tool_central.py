@@ -1237,3 +1237,34 @@ async def ir_para_reagendamento_de_duvidas(ctx: RunContext[MyDeps]) -> str:
     print("=" * 80)
     
     return "TRANSICAO_REAGENDAMENTO"
+
+
+@Tool
+async def ativar_transbordo(ctx: RunContext[MyDeps]) -> str:
+    """
+    Ativa o transbordo para transferir o usuário para atendimento humano.
+    Deleta a sessão (conversation_id) completamente.
+    Use esta tool quando o usuário disser "quero falar com eles", "quero falar com a unidade" ou similar.
+    
+    Returns:
+        str: Confirmação de que o transbordo foi ativado
+    """
+    from store.database import delete_session
+    
+    print("=" * 80)
+    print("🔄 ATIVANDO TRANSBORDO")
+    print("=" * 80)
+    
+    # Ativa flag de transbordo
+    ctx.deps.transbordo = True
+    
+    # Salva flag no contexto (sessão será deletada DEPOIS do retorno)
+    update_context(ctx.deps.session_id, {
+        "transbordo": True
+    })
+    
+    print("✅ Transbordo ativado")
+    print("🚩 Flag transbordo: TRUE (sessão será deletada após retorno)")
+    print("=" * 80)
+    
+    return "TRANSBORDO_ATIVADO"

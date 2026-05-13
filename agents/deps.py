@@ -36,6 +36,7 @@ class MyDeps:
     
     # CONTROLE DE FINALIZAÇÃO
     finalizar_sessao: Optional[bool] = None  # Flag para React Flow encerrar conversa
+    transbordo: Optional[bool] = None  # Flag para transferir para atendimento humano
     
     # DÚVIDAS GERAIS
     opcoes_faq: Optional[list] = None  # Opções de FAQ quando há múltiplas respostas

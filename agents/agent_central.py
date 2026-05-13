@@ -24,7 +24,8 @@ from tools.tool_central import (
     ir_para_duvidas_gerais,
     ir_para_agendamento_de_duvidas,
     ir_para_cancelamento_de_duvidas,
-    ir_para_reagendamento_de_duvidas
+    ir_para_reagendamento_de_duvidas,
+    ativar_transbordo
 )
 from utils import registrar_step, registrar_assunto
 
@@ -175,6 +176,9 @@ Aqui vão as informações pra te ajudar:
 
 Deseja consultar as outras unidades? 😊"
 4. Após resposta:
+   - Se usuário disser "quero falar com eles", "quero falar com a unidade" ou similar: 
+     * **OBRIGATÓRIO:** Chame IMEDIATAMENTE a tool `ativar_transbordo()` 
+     * Depois responda: "Vou transferir você para falar diretamente com a unidade. Aguarde um momento! 😊"
    - Se SIM: Vá para *ASSUNTO #Consultar outras unidades CEP*
    - Se NÃO: Pergunte "Posso ajudar em algo mais?"
 
@@ -453,6 +457,7 @@ Posso ajudar em algo mais?"
         encerrar_atendimento,
         marcar_contexto_cancelamento,
         ir_para_duvidas_gerais,
+        ativar_transbordo,
         registrar_step,
         registrar_assunto
     ],
