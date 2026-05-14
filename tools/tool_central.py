@@ -1261,9 +1261,10 @@ async def ir_para_reagendamento_de_duvidas(ctx: RunContext[MyDeps]) -> str:
 @Tool
 async def ativar_transbordo(ctx: RunContext[MyDeps]) -> str:
     """
-    Ativa o transbordo para transferir o usuário para atendimento humano.
+    Ativa o transbordo para transferir o usuário para atendimento de uma unidade específica.
     Deleta a sessão (conversation_id) completamente.
-    Use esta tool quando o usuário disser "quero falar com eles", "quero falar com a unidade" ou similar.
+    Use esta tool APENAS quando a unidade selecionada tiver bot próprio (tem_bot = True) 
+    E o usuário confirmar que deseja falar com essa unidade.
     
     Returns:
         str: Confirmação de que o transbordo foi ativado
