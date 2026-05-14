@@ -17,6 +17,8 @@ class MyDeps:
     longitude_usuario: Optional[float] = None
     unidade_encontrada: Optional[dict] = None
     unidades_multiplas: Optional[list] = None  # Lista de unidades quando encontra múltiplas no raio
+    unidade_selecionada: Optional[dict] = None  # Unidade específica escolhida pelo usuário
+    tem_bot: Optional[bool] = None  # Se a unidade selecionada tem bot próprio
     
     # BOT CENTRAL - CONTROLE DE TENTATIVAS
     tentativas_agendamento: int = 0  # Contador para evitar loop quando usuário insiste em agendar

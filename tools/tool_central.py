@@ -86,7 +86,7 @@ def _sincronizar_unidades_com_api():
         # Cria dicionário de unidades locais por ID para comparação
         locais_por_id = {u.get('id'): u for u in unidades_locais if u.get('id')}
         
-        # Compara APENAS campos de endereço
+        # Compara APENAS campos de endereço (ignora latitude, longitude e bot)
         def campos_endereco(unidade):
             """Retorna apenas campos de endereço para comparação"""
             return {
@@ -114,12 +114,17 @@ def _sincronizar_unidades_com_api():
                     print(f"   📝 Endereço alterado: {unidade_api.get('nomeFantasiaFranqueada')}")
                     precisa_atualizar = True
                     unidades_para_geocodificar.append((unidade_api, unidade_id))
+                    # Preserva campo bot mesmo com endereço alterado
+                    if 'bot' in local:
+                        unidade_api['bot'] = local['bot']
                 else:
-                    # Endereço igual → mantém coordenadas antigas
+                    # Endereço igual → mantém coordenadas e bot antigos
                     if 'latitude' in local:
                         unidade_api['latitude'] = local['latitude']
                     if 'longitude' in local:
                         unidade_api['longitude'] = local['longitude']
+                    if 'bot' in local:
+                        unidade_api['bot'] = local['bot']
             else:
                 # Nova unidade
                 print(f"   ➕ Nova unidade: {unidade_api.get('nomeFantasiaFranqueada')}")
@@ -347,7 +352,8 @@ async def encontrar_unidade_mais_proxima(
             'latitude': lat,
             'longitude': lon,
             'link_maps': unidade.get('link_maps', f"https://maps.google.com/?q={lat},{lon}"),
-            'distancia_km': distancia_km
+            'distancia_km': distancia_km,
+            'bot': unidade.get('bot', False)
         })
     
     if not unidades_com_distancia:
@@ -471,7 +477,8 @@ async def encontrar_unidades_no_raio(
             'latitude': lat,
             'longitude': lon,
             'link_maps': unidade.get('link_maps', f"https://maps.google.com/?q={lat},{lon}"),
-            'distancia_km': distancia_km
+            'distancia_km': distancia_km,
+            'bot': unidade.get('bot', False)
         })
     
     if not unidades_com_distancia:
@@ -894,8 +901,20 @@ async def obter_info_unidade(
     print(f"✅ Unidade encontrada: {unidade_encontrada['nome']}")
     print("=" * 80)
     
-    # Retorna dados formatados
-    dados = f"{unidade_encontrada['nome']}|{unidade_encontrada['endereco_completo']}|{unidade_encontrada['telefone']}|{unidade_encontrada['whatsapp']}|{unidade_encontrada['email']}|{unidade_encontrada['horario_funcionamento']}|{unidade_encontrada['link_maps']}"
+    # Verifica se a unidade tem bot próprio
+    tem_bot = unidade_encontrada.get('bot', False)
+    print(f"🤖 Unidade possui bot próprio: {tem_bot}")
+    
+    # Salva unidade selecionada e tem_bot no contexto
+    ctx.deps.unidade_selecionada = unidade_encontrada
+    ctx.deps.tem_bot = tem_bot
+    update_context(conversation_id, {
+        "unidade_selecionada": unidade_encontrada,
+        "tem_bot": tem_bot
+    })
+    
+    # Retorna dados formatados (incluindo se tem bot)
+    dados = f"{unidade_encontrada['nome']}|{unidade_encontrada['endereco_completo']}|{unidade_encontrada['telefone']}|{unidade_encontrada['whatsapp']}|{unidade_encontrada['email']}|{unidade_encontrada['horario_funcionamento']}|{unidade_encontrada['link_maps']}|{tem_bot}"
     return f"ENCONTRADA|{dados}"
 
 
